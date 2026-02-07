@@ -9,6 +9,7 @@
 #   --no-cleanup    Keep containers running after tests (for debugging)
 #   --setup-only    Only setup the test environment, don't run tests
 #   --filter PATTERN Run only tests matching the pattern
+#   --formatter FMT  Output format (pretty, tap, junit, etc.) [default: pretty]
 #   --help          Show this help message
 #
 
@@ -30,7 +31,13 @@ NC='\033[0m' # No Color
 NO_CLEANUP=0
 SETUP_ONLY=0
 FILTER=""
+FORMATTER="pretty"
 SHOW_HELP=0
+
+# Default to tap in GitHub Actions
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    FORMATTER="tap"
+fi
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -44,6 +51,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --filter)
             FILTER="$2"
+            shift 2
+            ;;
+        --formatter)
+            FORMATTER="$2"
             shift 2
             ;;
         --help|-h)
@@ -68,12 +79,14 @@ if [ $SHOW_HELP -eq 1 ]; then
     echo "  --no-cleanup      Keep containers running after tests (for debugging)"
     echo "  --setup-only      Only setup the test environment, don't run tests"
     echo "  --filter PATTERN  Run only tests matching the pattern"
+    echo "  --formatter FMT   Output format (pretty, tap, junit, etc.) [default: $FORMATTER]"
     echo "  --help, -h        Show this help message"
     echo ""
     echo "Examples:"
     echo "  ./test-dockers.sh                                    # Run all tests"
     echo "  ./test-dockers.sh --no-cleanup                       # Run tests, keep containers"
     echo "  ./test-dockers.sh --filter basic                     # Run only basic sync tests"
+    echo "  ./test-dockers.sh --formatter tap                    # Run tests with TAP output"
     echo "  ./test-dockers.sh --setup-only                       # Just setup, then exit"
     echo ""
     exit 0
@@ -202,7 +215,7 @@ echo ""
 print_info "Running tests..."
 echo ""
 
-BATS_ARGS="--timing"
+BATS_ARGS="--timing --formatter $FORMATTER"
 
 if [ -n "$FILTER" ]; then
     BATS_ARGS="$BATS_ARGS --filter '$FILTER'"
