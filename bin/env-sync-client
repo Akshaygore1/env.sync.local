@@ -208,21 +208,59 @@ reencrypt_secrets() {
     fi
     
     # Read content
-    local content=$(cat "$plaintext_file")
+    local content=$(get_secrets_content "$plaintext_file")
+    local new_content=""
     
-    # Encrypt to all recipients
-    local encrypted_content=$(encrypt_secrets_content "$content" "${recipients[@]}")
+    # Process line by line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
+            new_content="${new_content}
+${line}"
+            continue
+        fi
+        
+        # Parse line
+        if [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)=\"(.*)\"[[:space:]]*#.*ENVSYNC_UPDATED_AT=(.*) ]]; then
+            local key="${BASH_REMATCH[1]}"
+            local val="${BASH_REMATCH[2]}" # This is likely encrypted base64
+            local ts="${BASH_REMATCH[3]}"
+            
+            # Decrypt existing value
+            local decrypted=$(decrypt_value "$val")
+            if [[ $? -ne 0 ]]; then
+                log "WARN" "Failed to decrypt $key during re-encryption (skipping re-encryption for this key)"
+                new_content="${new_content}
+${line}"
+                continue
+            fi
+            
+            # Re-encrypt for new recipients
+            local encrypted=$(encrypt_value "$decrypted" "${recipients[@]}")
+            if [[ $? -ne 0 ]]; then
+                log "ERROR" "Failed to re-encrypt $key"
+                return 1
+            fi
+            
+            new_content="${new_content}
+$key=\"$encrypted\" # ENVSYNC_UPDATED_AT=$ts"
+        else
+            # Keep line as is if it doesn't match expected format
+            new_content="${new_content}
+${line}"
+        fi
+    done <<< "$content"
     
-    if [[ -z "$encrypted_content" ]]; then
-        log "ERROR" "Failed to encrypt secrets"
-        return 1
-    fi
+    # Clean up newlines
+    new_content=$(echo "$new_content" | sed '/^[[:space:]]*$/d')
     
-    # Build recipients string
+    # Save content
+    set_secrets_content "$output_file" "$new_content"
+    
+    # Ensure metadata is updated
     local recipients_str=$(IFS=,; echo "${recipients[*]}")
-    
-    # Save encrypted file
-    save_encrypted_secrets "$output_file" "$encrypted_content" "$recipients_str"
+    sed -i.bak "s/^# RECIPIENTS:.*/# RECIPIENTS: $recipients_str/" "$output_file"
+    rm -f "$output_file.bak"
+    update_metadata "$output_file"
     
     return 0
 }
@@ -296,74 +334,31 @@ sync_from_host() {
         return 1
     fi
     
-    # Check if remote file is encrypted and if we can decrypt it
-    if is_file_encrypted "$remote_file"; then
-        if ! can_decrypt_file "$remote_file"; then
-            log "ERROR" "Cannot sync from $host - file is encrypted and we're not a recipient"
-            log "INFO" "Run 'env-sync key request-access --trigger $host' to request access"
-            rm -f "$remote_file"
-            return 1
-        fi
-    fi
-    
     # Check if local file exists
     if [[ ! -f "$SECRETS_FILE" ]]; then
         log "INFO" "No local secrets file found, copying from $host"
-        
-        # If remote is encrypted, we should re-encrypt to all known recipients
-        if is_file_encrypted "$remote_file"; then
-            local temp_decrypted=$(mktemp)
-            decrypt_secrets_file "$remote_file" "$temp_decrypted"
-            reencrypt_secrets "$temp_decrypted" "$SECRETS_FILE"
-            rm -f "$temp_decrypted"
-        else
-            cp "$remote_file" "$SECRETS_FILE"
-            chmod 600 "$SECRETS_FILE"
-        fi
-        
+        cp "$remote_file" "$SECRETS_FILE"
+        chmod 600 "$SECRETS_FILE"
         rm -f "$remote_file"
-        log "SUCCESS" "Synced secrets from $host (new file)"
-        return 0
-    fi
-    
-    # Decrypt both files for comparison
-    local local_decrypted=$(mktemp)
-    local remote_decrypted=$(mktemp)
-    
-    trap "rm -f $local_decrypted $remote_decrypted" EXIT
-    
-    decrypt_for_comparison "$SECRETS_FILE" "$local_decrypted" || {
-        log "ERROR" "Cannot decrypt local secrets file"
-        rm -f "$remote_file"
-        return 1
-    }
-    
-    decrypt_for_comparison "$remote_file" "$remote_decrypted" || {
-        log "ERROR" "Cannot decrypt remote secrets file from $host"
-        rm -f "$remote_file"
-        return 1
-    }
-    
-    # Compare versions (using decrypted files for metadata comparison)
-    if ! $FORCE && ! is_newer "$remote_file" "$SECRETS_FILE"; then
-        local local_version=$(get_file_version "$SECRETS_FILE")
-        local remote_version=$(get_file_version "$remote_file")
-        log "INFO" "Local version ($local_version) is same or newer than $host ($remote_version)"
-        rm -f "$remote_file"
+        log "SUCCESS" "Synced secrets from $host"
         return 0
     fi
     
     # Create backup
     create_backup "$SECRETS_FILE"
     
-    # Use the remote decrypted content and re-encrypt to all recipients
-    reencrypt_secrets "$remote_decrypted" "$SECRETS_FILE"
+    # Get contents
+    local local_content=$(get_secrets_content "$SECRETS_FILE")
+    local remote_content=$(get_secrets_content "$remote_file")
+    
+    # Merge contents
+    local merged_content=$(merge_secrets_content "$local_content" "$remote_content")
+    
+    # Save merged content
+    set_secrets_content "$SECRETS_FILE" "$merged_content"
     
     rm -f "$remote_file"
-    
-    local remote_version=$(get_file_version "$SECRETS_FILE")
-    local remote_host=$(get_file_host "$SECRETS_FILE")
-    log "SUCCESS" "Synced secrets from $host (version $remote_version)"
+    log "SUCCESS" "Synced and merged secrets from $host"
     
     return 0
 }

@@ -130,8 +130,19 @@ compare_timestamps() {
     fi
     
     # Convert to seconds since epoch and compare
-    local s1=$(date -d "$t1" '+%s' 2>/dev/null || echo "0")
-    local s2=$(date -d "$t2" '+%s' 2>/dev/null || echo "0")
+    local s1
+    local s2
+    
+    if date --version >/dev/null 2>&1; then
+        # GNU date (Linux)
+        s1=$(date -d "$t1" '+%s' 2>/dev/null || echo "0")
+        s2=$(date -d "$t2" '+%s' 2>/dev/null || echo "0")
+    else
+        # BSD date (macOS)
+        # Try -j -f with the specific format we use
+        s1=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$t1" "+%s" 2>/dev/null || echo "0")
+        s2=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$t2" "+%s" 2>/dev/null || echo "0")
+    fi
     
     if [[ "$s1" -gt "$s2" ]]; then
         return 1  # t1 > t2
@@ -506,14 +517,55 @@ can_decrypt_file() {
 }
 
 # Decrypt secrets file to plaintext
+# Handles both legacy (full file) and new (per-line) encryption
 decrypt_secrets_file() {
     local input_file="$1"
     local output_file="${2:-}"
     
+    # Check if it's the new format (implicit encryption)
+    # If it has ENVSYNC_UPDATED_AT, it likely has encrypted values
+    if grep -q "ENVSYNC_UPDATED_AT=" "$input_file"; then
+        # New format: Decrypt line by line
+        local decrypted_content=""
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            # Match KEY="VALUE" pattern
+            if [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)=\"(.*)\"[[:space:]]*# ]]; then
+                local key="${BASH_REMATCH[1]}"
+                local enc_val="${BASH_REMATCH[2]}"
+                # Decrypt value
+                local dec_val
+                dec_val=$(echo "$enc_val" | base64 -d | age -d -i "$AGE_KEY_FILE" 2>/dev/null)
+                if [[ $? -eq 0 ]]; then
+                    # Output decrypted value
+                    decrypted_content="${decrypted_content}
+$key=\"$dec_val\""
+                else
+                    decrypted_content="${decrypted_content}
+# Failed to decrypt $key"
+                fi
+            else
+                decrypted_content="${decrypted_content}
+$line"
+            fi
+        done < <(get_secrets_content "$input_file")
+        
+        # Clean up initial newline
+        decrypted_content="${decrypted_content:1}"
+        
+        if [[ -n "$output_file" ]]; then
+            echo "$decrypted_content" > "$output_file"
+        else
+            echo "$decrypted_content"
+        fi
+        return 0
+    fi
+
     if ! is_file_encrypted "$input_file"; then
         # Not encrypted, just copy
         if [[ -n "$output_file" ]]; then
             cp "$input_file" "$output_file"
+        else
+            cat "$input_file"
         fi
         return 0
     fi
@@ -523,12 +575,14 @@ decrypt_secrets_file() {
         return 1
     fi
     
-    # Extract encrypted block
+    # Extract encrypted block (Legacy format)
     local encrypted_block=$(sed -n '/-----BEGIN AGE ENCRYPTED FILE-----/,/-----END AGE ENCRYPTED FILE-----/p' "$input_file" | grep -v '^-----')
     
     if [[ -z "$encrypted_block" ]]; then
-        log "ERROR" "No encrypted data found in file"
-        return 1
+        # If encrypted flag is set but no block and no new format detected above, something is wrong
+        # Or maybe it's just an empty file initialized with encryption?
+        log "WARN" "No encrypted data found in file (possibly empty or corrupted)"
+        return 0
     fi
     
     # Decode base64 and decrypt
@@ -541,33 +595,134 @@ decrypt_secrets_file() {
     return $?
 }
 
-# Encrypt secrets content to multiple recipients
-encrypt_secrets_content() {
-    local content="$1"
+# Encrypt a single value for multiple recipients
+# Returns: Base64 encoded encrypted string
+encrypt_value() {
+    local value="$1"
     shift
-    local recipients=("$@")  # Array of recipient pubkeys
-    
+    local recipients=("$@")
+
     if [[ ${#recipients[@]} -eq 0 ]]; then
         log "ERROR" "No recipients specified for encryption"
         return 1
     fi
-    
+
     # Build age recipient arguments
     local age_args=()
     for recipient in "${recipients[@]}"; do
         age_args+=("-r" "$recipient")
     done
-    
+
     # Encrypt content
+    # Use binary output (-a not used) then base64 encode
+    # -w 0 ensures no line wrapping in base64 output
     local encrypted
-    encrypted=$(echo "$content" | age "${age_args[@]}" 2>/dev/null | base64)
-    
+    encrypted=$(echo -n "$value" | age "${age_args[@]}" 2>/dev/null | base64 -w 0)
+
     if [[ -z "$encrypted" ]]; then
         log "ERROR" "Encryption failed"
         return 1
     fi
-    
+
     echo "$encrypted"
+}
+
+# Decrypt a single value
+# Returns: Plaintext string
+decrypt_value() {
+    local encrypted_base64="$1"
+
+    if [[ -z "$encrypted_base64" ]]; then
+        return
+    fi
+
+    if [[ ! -f "$AGE_KEY_FILE" ]]; then
+        log "ERROR" "No private key found for decryption"
+        return 1
+    fi
+
+    # Base64 decode -> age decrypt
+    echo "$encrypted_base64" | base64 -d | age -d -i "$AGE_KEY_FILE" 2>/dev/null
+}
+
+# Extract timestamp from a line
+# Line format: KEY="VALUE" # ENVSYNC_UPDATED_AT=timestamp
+get_line_timestamp() {
+    local line="$1"
+    if [[ "$line" =~ ENVSYNC_UPDATED_AT=([0-9TZ:.-]+) ]]; then
+        echo "${BASH_REMATCH[1]}"
+    else
+        echo ""
+    fi
+}
+
+# Extract key from a line
+get_line_key() {
+    local line="$1"
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+        echo "${BASH_REMATCH[1]}"
+    else
+        echo ""
+    fi
+}
+
+# Merge local and remote secrets content based on timestamps
+# Returns: Merged content
+merge_secrets_content() {
+    local local_content="$1"
+    local remote_content="$2"
+
+    # Use associative arrays to store latest lines and timestamps
+    # Note: Bash 4+ required for associative arrays
+    declare -A lines
+    declare -A timestamps
+
+    # Process local content
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip empty lines and comments (except our metadata comments)
+        if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        local key=$(get_line_key "$line")
+        local ts=$(get_line_timestamp "$line")
+
+        if [[ -n "$key" ]]; then
+            lines["$key"]="$line"
+            timestamps["$key"]="$ts"
+        fi
+    done <<< "$local_content"
+
+    # Process remote content
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        local key=$(get_line_key "$line")
+        local remote_ts=$(get_line_timestamp "$line")
+        local local_ts="${timestamps[$key]:-}"
+
+        if [[ -n "$key" ]]; then
+            # If key doesn't exist locally, or remote is newer
+            if [[ -z "$local_ts" ]]; then
+                lines["$key"]="$line"
+                timestamps["$key"]="$remote_ts"
+            else
+                # Compare timestamps
+                compare_timestamps "$remote_ts" "$local_ts"
+                if [[ $? -eq 1 ]]; then # remote > local
+                    lines["$key"]="$line"
+                    timestamps["$key"]="$remote_ts"
+                fi
+            fi
+        fi
+    done <<< "$remote_content"
+
+    # Output merged content sorted by key
+    for key in "${!lines[@]}"; do
+        echo "${lines[$key]}"
+    done | sort
 }
 
 # Save encrypted secrets file
