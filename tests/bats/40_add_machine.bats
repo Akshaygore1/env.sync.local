@@ -57,8 +57,10 @@ load 'test_helper'
     [ "$status" -eq 0 ]
     
     # Also share with beta and gamma for completeness
-    import_pubkey "$CONTAINER_BETA" "$DELTA_PUBKEY" "delta.local"
-    import_pubkey "$CONTAINER_GAMMA" "$DELTA_PUBKEY" "delta.local"
+    run parallel_run \
+        "import_pubkey \"$CONTAINER_BETA\" \"$DELTA_PUBKEY\" \"delta.local\"" \
+        "import_pubkey \"$CONTAINER_GAMMA\" \"$DELTA_PUBKEY\" \"delta.local\""
+    [ "$status" -eq 0 ]
 }
 
 @test "Trigger re-encryption on alpha to include delta" {
@@ -68,10 +70,9 @@ load 'test_helper'
 }
 
 @test "Sync other containers to get re-encrypted file" {
-    run trigger_sync "$CONTAINER_BETA"
-    [ "$status" -eq 0 ]
-    
-    run trigger_sync "$CONTAINER_GAMMA"
+    run parallel_run \
+        "trigger_sync \"$CONTAINER_BETA\"" \
+        "trigger_sync \"$CONTAINER_GAMMA\""
     [ "$status" -eq 0 ]
 }
 
