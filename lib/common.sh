@@ -371,7 +371,7 @@ set_secrets_content() {
     local file="$1"
     local content="$2"
     
-    if [[ ! -f "$file" ]]; then
+    if [[ ! -f "$file" ]] || ! grep -q "^# === ENV_SYNC_METADATA ===" "$file"; then
         init_secrets_file "$file"
     fi
     

@@ -256,8 +256,14 @@ ${line}"
     # Save content
     set_secrets_content "$output_file" "$new_content"
     
-    # Ensure metadata is updated
+    # Ensure metadata is updated and ENCRYPTED flag is set
     local recipients_str=$(IFS=,; echo "${recipients[*]}")
+    
+    # Add ENCRYPTED flag if missing (since set_secrets_content on new file might miss it)
+    if ! grep -q "^# ENCRYPTED: true" "$output_file"; then
+        sed -i.bak "s/^# HOST:.*/# HOST: $(get_hostname)\n# ENCRYPTED: true/" "$output_file"
+    fi
+    
     sed -i.bak "s/^# RECIPIENTS:.*/# RECIPIENTS: $recipients_str/" "$output_file"
     rm -f "$output_file.bak"
     update_metadata "$output_file"
@@ -276,19 +282,6 @@ maybe_reencrypt_local() {
     fi
 
     if ! can_decrypt_file "$SECRETS_FILE"; then
-        return 0
-    fi
-
-    local temp_decrypted=$(mktemp)
-    if ! decrypt_secrets_file "$SECRETS_FILE" "$temp_decrypted"; then
-        rm -f "$temp_decrypted"
-        return 1
-    fi
-
-    local plain_content
-    plain_content=$(sed '/^[[:space:]]*#/d' "$temp_decrypted" | sed '/^[[:space:]]*$/d')
-    if [[ -z "$plain_content" ]]; then
-        rm -f "$temp_decrypted"
         return 0
     fi
 
@@ -313,15 +306,22 @@ maybe_reencrypt_local() {
     done
 
     if ! $missing; then
-        rm -f "$temp_decrypted"
         return 0
     fi
 
-    if reencrypt_secrets "$temp_decrypted" "$SECRETS_FILE"; then
+    # Create temp file for re-encryption output
+    local temp_output=$(mktemp)
+    
+    # reencrypt_secrets takes the CURRENT encrypted file as input,
+    # decrypts values line-by-line, and re-encrypts for ALL recipients.
+    if reencrypt_secrets "$SECRETS_FILE" "$temp_output"; then
+        mv "$temp_output" "$SECRETS_FILE"
+        chmod 600 "$SECRETS_FILE"
         log "SUCCESS" "Re-encrypted local secrets with updated recipients"
+    else
+        rm -f "$temp_output"
+        log "ERROR" "Failed to re-encrypt secrets"
     fi
-
-    rm -f "$temp_decrypted"
 }
 
 # Function to sync from a specific host
