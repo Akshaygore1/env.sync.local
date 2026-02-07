@@ -10,6 +10,8 @@
 
 Distributed secrets synchronization tool for local networks with **AGE encryption**. Sync your `.env` style secrets securely across multiple machines using SCP/SSH with at-rest encryption.
 
+![](./docs/cover.png)
+
 ## 🆕 What's New in v1.0 - Encryption Support
 
 - **AGE Encryption**: Secrets are encrypted at rest using AGE encryption
@@ -122,6 +124,13 @@ env-sync key request-access --trigger-all   # Request access on new machine
 # Load secrets for shell
 env-sync load                               # Output: export KEY=value
 
+# Secret management
+env-sync add KEY="value"                    # Add or update a secret
+env-sync add OPENAI_API_KEY="sk-..."        # Example: add API key
+env-sync remove KEY                         # Remove a secret
+env-sync list                               # List all keys (values hidden)
+env-sync show KEY                           # Show value of specific key
+
 # Other commands
 env-sync serve -d          # Start HTTP server (for HTTP mode only)
 env-sync discover          # Find peers on network
@@ -164,6 +173,87 @@ env-sync
 4. D syncs and can now decrypt the secrets
 
 **No changes needed on A, B, or C!**
+
+### Managing Secrets
+
+env-sync provides commands to add, remove, list, and view secrets without manually editing the file.
+
+#### Adding Secrets
+
+```bash
+# Add a new secret key-value pair
+env-sync add OPENAI_API_KEY="sk-abc123xyz"
+
+# Values can include spaces (use quotes)
+env-sync add DATABASE_URL="postgres://user:pass@localhost/db"
+
+# Updates existing key if it already exists
+env-sync add API_KEY="new-value"
+```
+
+**Features:**
+- Works with both encrypted and plaintext files
+- Automatically creates backup before modification
+- Updates metadata (timestamp, checksum)
+- Properly handles quotes in values
+
+#### Removing Secrets
+
+```bash
+# Remove a secret by key name
+env-sync remove OPENAI_API_KEY
+
+# Safe to run - warns if key doesn't exist
+env-sync remove NONEXISTENT_KEY
+```
+
+#### Listing Secrets
+
+```bash
+# List all secret keys (values are hidden for security)
+env-sync list
+
+# Output:
+# Secrets keys:
+#   • OPENAI_API_KEY
+#   • DATABASE_URL
+#   • AWS_ACCESS_KEY
+#
+# Total: 3 keys
+```
+
+#### Viewing Secrets
+
+```bash
+# Show the value of a specific key
+env-sync show OPENAI_API_KEY
+
+# Output: sk-abc123xyz
+```
+
+**Full Example Workflow:**
+
+```bash
+# Initialize with encryption
+env-sync init --encrypted
+
+# Add your secrets
+env-sync add OPENAI_API_KEY="sk-..."
+env-sync add DATABASE_URL="postgres://..."
+env-sync add AWS_ACCESS_KEY="AKIA..."
+
+# Verify what you have
+env-sync list
+
+# View a specific value when needed
+env-sync show DATABASE_URL
+
+# Remove if needed
+env-sync remove OLD_API_KEY
+
+# Changes are automatically backed up
+ls ~/.config/env-sync/backups/
+```
 
 ### Shell Integration
 
@@ -379,6 +469,7 @@ MIT License
 - [x] Multi-recipient encryption
 - [x] Remote trigger for machine addition
 - [x] Transparent decryption
+- [x] CLI secret management (add/remove/list/show)
 - [ ] Hardware key support (YubiKey)
 - [ ] Web UI for management
 - [ ] Key rotation

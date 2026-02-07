@@ -80,6 +80,16 @@ Commands:
     Options:
       --format <env|json>  Output format (default: env)
 
+  add <KEY="value">         Add or update a secret key-value pair
+    Example: env-sync add OPENAI_API_KEY="sk-..."
+
+  remove <KEY>              Remove a secret key from the file
+    Example: env-sync remove OPENAI_API_KEY
+
+  list                     List all secret keys (values hidden)
+
+  show <KEY>                Show value of a specific key
+
   cron [options]           Setup cron job for periodic sync
     Options:
       --install            Install cron job (30min interval)
@@ -486,6 +496,296 @@ cmd_cron() {
     esac
 }
 
+# Add command - Add or update a key-value pair
+cmd_add() {
+    if [[ $# -lt 1 ]]; then
+        echo "Usage: env-sync add KEY=\"value\""
+        echo "Example: env-sync add OPENAI_API_KEY=\"sk-...\""
+        exit 1
+    fi
+    
+    local input="$1"
+    
+    # Parse KEY="value" or KEY=value format
+    if [[ ! "$input" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+        log "ERROR" "Invalid format. Use: KEY=\"value\" or KEY=value"
+        exit 1
+    fi
+    
+    local key="${input%%=*}"
+    local value="${input#*=}"
+    
+    # Remove quotes if present
+    if [[ "$value" =~ ^\".*\"$ ]]; then
+        value="${value#\"}"
+        value="${value%\"}"
+    elif [[ "$value" =~ ^'.*'$ ]]; then
+        value="${value#\'}"
+        value="${value%\'}"
+    fi
+    
+    # Check if file exists
+    if [[ ! -f "$SECRETS_FILE" ]]; then
+        log "ERROR" "Secrets file not found. Run 'env-sync init' first."
+        exit 1
+    fi
+    
+    # Handle encrypted files
+    local temp_file=""
+    local is_encrypted=false
+    
+    if is_file_encrypted "$SECRETS_FILE"; then
+        is_encrypted=true
+        if ! can_decrypt_file "$SECRETS_FILE"; then
+            log "ERROR" "Cannot modify encrypted file - you don't have access"
+            exit 1
+        fi
+        
+        # Decrypt to temp file
+        temp_file=$(mktemp)
+        if ! decrypt_secrets_file "$SECRETS_FILE" "$temp_file"; then
+            log "ERROR" "Failed to decrypt secrets file"
+            rm -f "$temp_file"
+            exit 1
+        fi
+        
+        local work_file="$temp_file"
+    else
+        local work_file="$SECRETS_FILE"
+    fi
+    
+    # Create backup
+    create_backup "$SECRETS_FILE"
+    
+    # Get current content (without metadata)
+    local content=$(get_secrets_content "$work_file")
+    
+    # Remove existing key if present (handle various formats)
+    content=$(echo "$content" | grep -v "^$key=" | grep -v "^export $key=" | grep -v "^# $key is set$")
+    
+    # Add new key-value pair
+    content="${content}
+$key=\"$value\""
+    
+    # Remove empty lines at start/end and deduplicate
+    content=$(echo "$content" | sed '/^$/N;/^\n$/D' | sed '/^[[:space:]]*$/d')
+    
+    # Save updated content
+    set_secrets_content "$work_file" "$content"
+    
+    # If encrypted, re-encrypt with all recipients
+    if $is_encrypted; then
+        local recipients=$(get_recipients_from_file "$SECRETS_FILE")
+        local encrypted_content=$(encrypt_secrets_content "$content" "$recipients")
+        
+        if [[ -z "$encrypted_content" ]]; then
+            log "ERROR" "Failed to encrypt updated content"
+            rm -f "$temp_file"
+            exit 1
+        fi
+        
+        save_encrypted_secrets "$SECRETS_FILE" "$encrypted_content" "$recipients"
+        rm -f "$temp_file"
+    fi
+    
+    log "SUCCESS" "Added/updated key: $key"
+}
+
+# Remove command - Remove a key
+cmd_remove() {
+    if [[ $# -lt 1 ]]; then
+        echo "Usage: env-sync remove KEY"
+        echo "Example: env-sync remove OPENAI_API_KEY"
+        exit 1
+    fi
+    
+    local key="$1"
+    
+    # Validate key format
+    if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+        log "ERROR" "Invalid key name: $key"
+        exit 1
+    fi
+    
+    # Check if file exists
+    if [[ ! -f "$SECRETS_FILE" ]]; then
+        log "ERROR" "Secrets file not found. Run 'env-sync init' first."
+        exit 1
+    fi
+    
+    # Handle encrypted files
+    local temp_file=""
+    local is_encrypted=false
+    
+    if is_file_encrypted "$SECRETS_FILE"; then
+        is_encrypted=true
+        if ! can_decrypt_file "$SECRETS_FILE"; then
+            log "ERROR" "Cannot modify encrypted file - you don't have access"
+            exit 1
+        fi
+        
+        # Decrypt to temp file
+        temp_file=$(mktemp)
+        if ! decrypt_secrets_file "$SECRETS_FILE" "$temp_file"; then
+            log "ERROR" "Failed to decrypt secrets file"
+            rm -f "$temp_file"
+            exit 1
+        fi
+        
+        local work_file="$temp_file"
+    else
+        local work_file="$SECRETS_FILE"
+    fi
+    
+    # Check if key exists
+    if ! echo "$(get_secrets_content "$work_file")" | grep -q "^$key="; then
+        log "WARN" "Key not found: $key"
+        [[ -n "$temp_file" ]] && rm -f "$temp_file"
+        exit 0
+    fi
+    
+    # Create backup
+    create_backup "$SECRETS_FILE"
+    
+    # Get current content and remove the key
+    local content=$(get_secrets_content "$work_file")
+    content=$(echo "$content" | grep -v "^$key=" | grep -v "^export $key=" | grep -v "^# $key is set$")
+    
+    # Remove empty lines
+    content=$(echo "$content" | sed '/^[[:space:]]*$/d')
+    
+    # Save updated content
+    set_secrets_content "$work_file" "$content"
+    
+    # If encrypted, re-encrypt with all recipients
+    if $is_encrypted; then
+        local recipients=$(get_recipients_from_file "$SECRETS_FILE")
+        local encrypted_content=$(encrypt_secrets_content "$content" "$recipients")
+        
+        if [[ -z "$encrypted_content" ]]; then
+            log "ERROR" "Failed to encrypt updated content"
+            rm -f "$temp_file"
+            exit 1
+        fi
+        
+        save_encrypted_secrets "$SECRETS_FILE" "$encrypted_content" "$recipients"
+        rm -f "$temp_file"
+    fi
+    
+    log "SUCCESS" "Removed key: $key"
+}
+
+# List command - List all keys (values hidden)
+cmd_list() {
+    # Check if file exists
+    if [[ ! -f "$SECRETS_FILE" ]]; then
+        log "ERROR" "Secrets file not found. Run 'env-sync init' first."
+        exit 1
+    fi
+    
+    # Handle encrypted files
+    local temp_file=""
+    
+    if is_file_encrypted "$SECRETS_FILE"; then
+        if ! can_decrypt_file "$SECRETS_FILE"; then
+            log "ERROR" "Cannot read encrypted file - you don't have access"
+            exit 1
+        fi
+        
+        # Decrypt to temp file
+        temp_file=$(mktemp)
+        if ! decrypt_secrets_file "$SECRETS_FILE" "$temp_file"; then
+            log "ERROR" "Failed to decrypt secrets file"
+            rm -f "$temp_file"
+            exit 1
+        fi
+        
+        local work_file="$temp_file"
+    else
+        local work_file="$SECRETS_FILE"
+    fi
+    
+    # Get keys (filter out comments and empty lines)
+    local keys=$(get_secrets_content "$work_file" | grep "^" | grep -v "^#" | grep -v "^[[:space:]]*$" | cut -d'=' -f1 | grep "^[A-Za-z_]" | sort -u)
+    
+    if [[ -z "$keys" ]]; then
+        echo "No secrets found in file."
+    else
+        echo "Secrets keys:"
+        echo "$keys" | while read -r k; do
+            echo "  • $k"
+        done
+        echo ""
+        echo "Total: $(echo "$keys" | wc -l | tr -d ' ') keys"
+    fi
+    
+    [[ -n "$temp_file" ]] && rm -f "$temp_file"
+}
+
+# Show command - Show value of a specific key
+cmd_show() {
+    if [[ $# -lt 1 ]]; then
+        echo "Usage: env-sync show KEY"
+        echo "Example: env-sync show OPENAI_API_KEY"
+        exit 1
+    fi
+    
+    local key="$1"
+    
+    # Check if file exists
+    if [[ ! -f "$SECRETS_FILE" ]]; then
+        log "ERROR" "Secrets file not found. Run 'env-sync init' first."
+        exit 1
+    fi
+    
+    # Handle encrypted files
+    local temp_file=""
+    
+    if is_file_encrypted "$SECRETS_FILE"; then
+        if ! can_decrypt_file "$SECRETS_FILE"; then
+            log "ERROR" "Cannot read encrypted file - you don't have access"
+            exit 1
+        fi
+        
+        # Decrypt to temp file
+        temp_file=$(mktemp)
+        if ! decrypt_secrets_file "$SECRETS_FILE" "$temp_file"; then
+            log "ERROR" "Failed to decrypt secrets file"
+            rm -f "$temp_file"
+            exit 1
+        fi
+        
+        local work_file="$temp_file"
+    else
+        local work_file="$SECRETS_FILE"
+    fi
+    
+    # Get value
+    local value=$(get_secrets_content "$work_file" | grep "^$key=" | tail -1)
+    
+    if [[ -z "$value" ]]; then
+        log "ERROR" "Key not found: $key"
+        [[ -n "$temp_file" ]] && rm -f "$temp_file"
+        exit 1
+    fi
+    
+    # Extract just the value part
+    value="${value#*=}"
+    
+    # Remove quotes
+    if [[ "$value" =~ ^\".*\"$ ]]; then
+        value="${value#\"}"
+        value="${value%\"}"
+    elif [[ "$value" =~ ^'.*'$ ]]; then
+        value="${value#\'}"
+        value="${value%\'}"
+    fi
+    
+    echo "$value"
+    
+    [[ -n "$temp_file" ]] && rm -f "$temp_file"
+}
+
 # Route to appropriate command
 case "$COMMAND" in
     sync|s)
@@ -514,6 +814,18 @@ case "$COMMAND" in
         ;;
     load|l)
         "$SCRIPT_DIR/env-sync-load" "$@"
+        ;;
+    add|a)
+        cmd_add "$@"
+        ;;
+    remove|rm|delete|del)
+        cmd_remove "$@"
+        ;;
+    list|ls)
+        cmd_list
+        ;;
+    show|get)
+        cmd_show "$@"
         ;;
     help|--help|-h)
         show_help
