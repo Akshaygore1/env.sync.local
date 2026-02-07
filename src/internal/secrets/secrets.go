@@ -55,7 +55,7 @@ func InitSecretsFile(file string, initTimestamp string) error {
 	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
 		return err
 	}
-	if err := UpdateMetadata(file, ""); err != nil {
+	if err := metadata.UpdateChecksum(file); err != nil {
 		return err
 	}
 	logging.Log("SUCCESS", "Initialized secrets file: "+file)
