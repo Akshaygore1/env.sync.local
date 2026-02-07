@@ -24,13 +24,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y parallel
 
-      - name: Install BATS
-        run: |
-          git clone https://github.com/bats-core/bats-core.git
-          cd bats-core
-          sudo ./install.sh /usr/local
-          cd ..
-          rm -rf bats-core
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install BATS via NPM
+        run: npm install -g bats
 
       - name: Verify BATS installation
         run: bats --version
