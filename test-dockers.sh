@@ -33,9 +33,8 @@ SETUP_ONLY=0
 FILTER=""
 FORMATTER="pretty"
 SHOW_HELP=0
-
-# Default to tap in GitHub Actions
-if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+# Default to tap in any CI environment
+if [ "${CI:-}" = "true" ]; then
     FORMATTER="tap"
 fi
 
@@ -112,7 +111,7 @@ print_warning() {
 # Function to check for bats
 check_bats() {
     print_info "Checking for bats testing framework..."
-    
+
     if command -v bats &> /dev/null; then
         print_success "bats is installed"
         export BATS_BIN="bats"
@@ -125,19 +124,19 @@ check_bats() {
 # Function to check prerequisites
 check_prerequisites() {
     print_info "Checking prerequisites..."
-    
+
     # Check Docker
     if ! command -v docker &> /dev/null; then
         print_error "Docker is not installed or not in PATH"
         exit 1
     fi
-    
+
     if ! docker info &> /dev/null; then
         print_error "Docker daemon is not running"
         exit 1
     fi
     print_success "Docker is available"
-    
+
     # Check docker-compose
     if command -v docker-compose &> /dev/null; then
         export DOCKER_COMPOSE="docker-compose"
@@ -153,16 +152,16 @@ check_prerequisites() {
 # Function to setup test environment
 setup_environment() {
     print_info "Setting up test environment..."
-    
+
     # Generate SSH keys
     print_info "Generating SSH keys..."
     "$TESTS_DIR/utils/generate-ssh-keys.sh"
-    
+
     # Build Docker image
     print_info "Building Docker image..."
     cd "$TESTS_DIR"
     $DOCKER_COMPOSE -f "$TESTS_DIR/docker/docker-compose.yml" build
-    
+
     print_success "Test environment is ready"
 }
 
@@ -174,7 +173,7 @@ cleanup() {
         print_info "  cd tests && docker-compose -f docker/docker-compose.yml down -v"
         return
     fi
-    
+
     print_info "Cleaning up..."
     cd "$TESTS_DIR"
     $DOCKER_COMPOSE -f "$TESTS_DIR/docker/docker-compose.yml" down -v 2>/dev/null || true
