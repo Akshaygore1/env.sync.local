@@ -801,7 +801,7 @@ case "$COMMAND" in
         cmd_status
         ;;
     init|i)
-        cmd_init
+        cmd_init "$@"
         ;;
     restore|r)
         cmd_restore "$@"

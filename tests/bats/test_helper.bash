@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+
+# Test helper for env-sync Docker tests
+# This file is sourced by all .bats test files
+
+# Setup function - runs before each test
+setup() {
+    # Define paths
+    export TESTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
+    export UTILS_DIR="$TESTS_DIR/utils"
+    export DOCKER_DIR="$TESTS_DIR/docker"
+    
+    # Container names
+    export CONTAINER_ALPHA="env-sync-alpha"
+    export CONTAINER_BETA="env-sync-beta"
+    export CONTAINER_GAMMA="env-sync-gamma"
+    export CONTAINER_DELTA="env-sync-delta"
+    
+    # Colors for output (if terminal supports it)
+    export GREEN='\033[0;32m'
+    export RED='\033[0;31m'
+    export YELLOW='\033[1;33m'
+    export NC='\033[0m' # No Color
+}
+
+# Teardown function - runs after each test
+teardown() {
+    : # Nothing to clean up per-test, full cleanup in 99_teardown.bats
+}
+
+# Helper: Check if Docker is available
+check_docker() {
+    if ! command -v docker &> /dev/null; then
+        echo "ERROR: Docker is not installed or not in PATH"
+        return 1
+    fi
+    
+    if ! docker info &> /dev/null; then
+        echo "ERROR: Docker daemon is not running"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Helper: Check if docker-compose is available
+check_docker_compose() {
+    if command -v docker-compose &> /dev/null; then
+        export DOCKER_COMPOSE="docker-compose"
+    elif docker compose version &> /dev/null; then
+        export DOCKER_COMPOSE="docker compose"
+    else
+        echo "ERROR: docker-compose is not installed"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Helper: Wait for containers to be ready
+wait_for_containers() {
+    local timeout=${1:-60}
+    local start_time=$(date +%s)
+    
+    while true; do
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+        
+        if [ $elapsed -ge $timeout ]; then
+            echo "TIMEOUT: Containers did not become ready within ${timeout}s"
+            return 1
+        fi
+        
+        # Check if all containers are running
+        local all_running=true
+        for container in $CONTAINER_ALPHA $CONTAINER_BETA $CONTAINER_GAMMA; do
+            if ! docker ps --format "{{.Names}}" | grep -q "^${container}$"; then
+                all_running=false
+                break
+            fi
+        done
+        
+        if [ "$all_running" = true ]; then
+            # Additional check: wait a bit for services to start
+            sleep 3
+            return 0
+        fi
+        
+        sleep 2
+    done
+}
+
+# Helper: Run command in container
+container_exec() {
+    local container="$1"
+    shift
+    docker exec "$container" "$@"
+}
+
+# Helper: Initialize env-sync in a container
+init_container() {
+    local container="$1"
+    local encrypted="${2:-false}"
+    
+    # Remove existing secrets file
+    container_exec "$container" rm -f /home/envsync/.secrets.env
+    
+    if [ "$encrypted" = true ]; then
+        # For encrypted init, also remove any existing keys to ensure fresh generation
+        container_exec "$container" rm -f /home/envsync/.config/env-sync/keys/age_key
+        container_exec "$container" rm -f /home/envsync/.config/env-sync/keys/age_key.pub
+        container_exec "$container" env-sync init --encrypted
+    else
+        container_exec "$container" env-sync init
+    fi
+}
+
+# Helper: Add secret to container
+add_secret() {
+    local container="$1"
+    local key="$2"
+    local value="$3"
+    
+    container_exec "$container" env-sync add "$key=$value"
+}
+
+# Helper: Get secret from container
+get_secret() {
+    local container="$1"
+    local key="$2"
+    
+    container_exec "$container" env-sync show "$key" 2>/dev/null || echo ""
+}
+
+# Helper: Trigger sync on container
+trigger_sync() {
+    local container="$1"
+    local force="${2:--f}"
+    
+    container_exec "$container" env-sync sync "$force"
+}
+
+# Helper: Verify secret exists and matches on all containers
+verify_secret_all() {
+    local key="$1"
+    local expected="$2"
+    local failed=0
+    
+    for container in $CONTAINER_ALPHA $CONTAINER_BETA $CONTAINER_GAMMA; do
+        local actual
+        actual=$(get_secret "$container" "$key")
+        if [ "$actual" != "$expected" ]; then
+            echo "  ✗ $container: expected '$expected', got '$actual'"
+            failed=1
+        fi
+    done
+    
+    return $failed
+}
+
+# Helper: Get AGE public key from container
+get_pubkey() {
+    local container="$1"
+    container_exec "$container" env-sync key show 2>/dev/null || echo ""
+}
+
+# Helper: Import public key to container
+import_pubkey() {
+    local container="$1"
+    local pubkey="$2"
+    local hostname="$3"
+    
+    container_exec "$container" env-sync key import "$pubkey" "$hostname"
+}
+
+# Helper: Clean up all test containers and volumes
+cleanup_all() {
+    echo "Cleaning up test environment..."
+    
+    # Stop and remove containers
+    $DOCKER_COMPOSE -f "$DOCKER_DIR/docker-compose.yml" down -v 2>/dev/null || true
+    
+    # Remove delta if it exists
+    docker stop "$CONTAINER_DELTA" 2>/dev/null || true
+    docker rm "$CONTAINER_DELTA" 2>/dev/null || true
+    
+    echo "Cleanup complete"
+}

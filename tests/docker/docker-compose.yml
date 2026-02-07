@@ -1,0 +1,80 @@
+version: '3.8'
+
+networks:
+  env-sync-test:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+services:
+  alpha:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
+    hostname: alpha.local
+    container_name: env-sync-alpha
+    networks:
+      env-sync-test:
+        ipv4_address: 172.20.0.2
+        aliases:
+          - alpha.local
+    volumes:
+      - ./ssh-keys:/home/envsync/.ssh:ro
+      - alpha-data:/home/envsync/.config/env-sync
+    environment:
+      - ENV_SYNC_DEBUG=1
+      - CONTAINER_NAME=alpha
+    cap_add:
+      - NET_ADMIN
+      - SYS_PTRACE
+    privileged: true  # Required for avahi-daemon
+
+  beta:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
+    hostname: beta.local
+    container_name: env-sync-beta
+    networks:
+      env-sync-test:
+        ipv4_address: 172.20.0.3
+        aliases:
+          - beta.local
+    volumes:
+      - ./ssh-keys:/home/envsync/.ssh:ro
+      - beta-data:/home/envsync/.config/env-sync
+    environment:
+      - ENV_SYNC_DEBUG=1
+      - CONTAINER_NAME=beta
+    cap_add:
+      - NET_ADMIN
+      - SYS_PTRACE
+    privileged: true
+
+  gamma:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile
+    hostname: gamma.local
+    container_name: env-sync-gamma
+    networks:
+      env-sync-test:
+        ipv4_address: 172.20.0.4
+        aliases:
+          - gamma.local
+    volumes:
+      - ./ssh-keys:/home/envsync/.ssh:ro
+      - gamma-data:/home/envsync/.config/env-sync
+    environment:
+      - ENV_SYNC_DEBUG=1
+      - CONTAINER_NAME=gamma
+    cap_add:
+      - NET_ADMIN
+      - SYS_PTRACE
+    privileged: true
+
+volumes:
+  alpha-data:
+  beta-data:
+  gamma-data:

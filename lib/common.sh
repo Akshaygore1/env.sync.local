@@ -293,6 +293,10 @@ update_metadata() {
         "$file"
     rm -f "$file.bak"
     
+    # Clear checksum before calculating new one
+    sed -i.bak "s/^# CHECKSUM: .*/# CHECKSUM: /" "$file"
+    rm -f "$file.bak"
+    
     # Update checksum
     local checksum=$(generate_checksum "$file")
     sed -i.bak "s/^# CHECKSUM: .*/# CHECKSUM: $checksum/" "$file"
