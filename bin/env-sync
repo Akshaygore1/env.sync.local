@@ -1,0 +1,372 @@
+#!/bin/bash
+# env-sync: Main CLI for distributed secrets synchronization
+# Usage: env-sync [command] [options]
+#
+# Commands:
+#   sync           Sync secrets from network (default)
+#   serve          Start HTTP server
+#   discover       Discover peers on network
+#   status         Show sync status
+#   init           Initialize secrets file
+#   restore        Restore from backup
+#   cron           Setup cron job for periodic sync
+#   help           Show help
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../lib/common.sh"
+
+# Default command
+COMMAND="${1:-sync}"
+shift || true
+
+# Show help
+show_help() {
+    cat << 'EOF'
+env-sync - Distributed secrets synchronization tool
+
+Usage: env-sync [command] [options]
+
+Commands:
+  sync [options]           Sync secrets from network (default)
+    Options:
+      -a, --all            Sync from all discovered peers
+      -f, --force          Force sync even if local is newer
+      -q, --quiet          Quiet mode
+      -h, --help           Show help
+
+  serve [options]          Start HTTP server
+    Options:
+      -p, --port PORT      Port to listen on (default: 5739)
+      -d, --daemon         Run as daemon
+      -q, --quiet          Quiet mode
+      -h, --help           Show help
+
+  discover [options]       Discover peers on network
+    Options:
+      -t, --timeout SECS   Discovery timeout (default: 5)
+      -q, --quiet          Only output hostnames
+      -v, --verbose        Verbose output
+      -h, --help           Show help
+
+  status                   Show sync status and peer information
+
+  init                     Initialize new secrets file
+
+  restore [n]              Restore from backup (n=1-5, default: 1)
+
+  cron [options]           Setup cron job for periodic sync
+    Options:
+      --install            Install cron job (30min interval)
+      --remove             Remove cron job
+      --show               Show current cron job
+
+  help                     Show this help message
+
+Examples:
+  env-sync                 # Run sync (default command)
+  env-sync serve -d        # Start server as daemon
+  env-sync discover        # Find peers on network
+  env-sync status          # Show current status
+  env-sync init            # Create new secrets file
+
+Files:
+  ~/.secrets.env           # Main secrets file
+  ~/.config/env-sync/      # Configuration directory
+  ~/.config/env-sync/backups/  # Backup files
+
+Environment Variables:
+  ENV_SYNC_QUIET=true      # Suppress output
+  ENV_SYNC_PORT=5739       # Server port
+
+EOF
+}
+
+# Sync command
+cmd_sync() {
+    local all=false
+    local force=false
+    local quiet=false
+    local args=()
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -a|--all) all=true; shift ;;
+            -f|--force) force=true; shift ;;
+            -q|--quiet) quiet=true; shift ;;
+            -h|--help)
+                echo "Usage: env-sync sync [options]"
+                echo "Options:"
+                echo "  -a, --all      Sync from all discovered peers"
+                echo "  -f, --force    Force sync even if local is newer"
+                echo "  -q, --quiet    Quiet mode"
+                exit 0
+                ;;
+            *) args+=("$1"); shift ;;
+        esac
+    done
+    
+    if $quiet; then
+        export ENV_SYNC_QUIET=true
+    fi
+    
+    local client_args=()
+    $all && client_args+=("--all")
+    $force && client_args+=("--force")
+    
+    if [[ ${#args[@]} -gt 0 ]]; then
+        client_args+=("${args[@]}")
+    fi
+    
+    "$SCRIPT_DIR/env-sync-client" "${client_args[@]}"
+}
+
+# Serve command
+cmd_serve() {
+    local port=""
+    local daemon=false
+    local quiet=false
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -p|--port) port="$2"; shift 2 ;;
+            -d|--daemon) daemon=true; shift ;;
+            -q|--quiet) quiet=true; shift ;;
+            -h|--help)
+                echo "Usage: env-sync serve [options]"
+                echo "Options:"
+                echo "  -p, --port PORT    Port to listen on"
+                echo "  -d, --daemon       Run as daemon"
+                echo "  -q, --quiet        Quiet mode"
+                exit 0
+                ;;
+            *) log "ERROR" "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    local serve_args=()
+    [[ -n "$port" ]] && serve_args+=("--port" "$port")
+    $daemon && serve_args+=("--daemon")
+    $quiet && serve_args+=("--quiet")
+    
+    "$SCRIPT_DIR/env-sync-serve" "${serve_args[@]}"
+}
+
+# Discover command
+cmd_discover() {
+    local timeout=""
+    local quiet=false
+    local verbose=false
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -t|--timeout) timeout="$2"; shift 2 ;;
+            -q|--quiet) quiet=true; shift ;;
+            -v|--verbose) verbose=true; shift ;;
+            -h|--help)
+                echo "Usage: env-sync discover [options]"
+                echo "Options:"
+                echo "  -t, --timeout SECS  Discovery timeout"
+                echo "  -q, --quiet         Only output hostnames"
+                echo "  -v, --verbose       Verbose output"
+                exit 0
+                ;;
+            *) log "ERROR" "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    local discover_args=()
+    [[ -n "$timeout" ]] && discover_args+=("--timeout" "$timeout")
+    $quiet && discover_args+=("--quiet")
+    $verbose && discover_args+=("--verbose")
+    
+    "$SCRIPT_DIR/env-sync-discover" "${discover_args[@]}"
+}
+
+# Status command
+cmd_status() {
+    echo "=== env-sync Status ==="
+    echo ""
+    
+    # Local file status
+    echo "Local Secrets File:"
+    if [[ -f "$SECRETS_FILE" ]]; then
+        local version=$(get_file_version "$SECRETS_FILE")
+        local timestamp=$(get_file_timestamp "$SECRETS_FILE")
+        local host=$(get_file_host "$SECRETS_FILE")
+        local checksum=$(get_file_checksum "$SECRETS_FILE")
+        
+        echo "  File: $SECRETS_FILE"
+        echo "  Version: $version"
+        echo "  Created: $timestamp"
+        echo "  Host: $host"
+        echo "  Checksum: ${checksum:0:16}..."
+        echo ""
+    else
+        echo "  File: $SECRETS_FILE (NOT FOUND)"
+        echo "  Run 'env-sync init' to create one"
+        echo ""
+    fi
+    
+    # Server status
+    echo "Local Server:"
+    if curl -fsSL "http://localhost:${ENV_SYNC_PORT}/health" >/dev/null 2>&1; then
+        local health=$(curl -fsSL "http://localhost:${ENV_SYNC_PORT}/health" 2>/dev/null)
+        local server_version=$(echo "$health" | grep -o '"version": "[^"]*"' | cut -d'"' -f4)
+        echo "  Status: Running"
+        echo "  Port: $ENV_SYNC_PORT"
+        echo "  Version: $server_version"
+    else
+        echo "  Status: Not running"
+        echo "  Run 'env-sync serve -d' to start"
+    fi
+    echo ""
+    
+    # Peer discovery
+    echo "Discovered Peers:"
+    local peers
+    if peers=$("$SCRIPT_DIR/env-sync-discover" --quiet 2>/dev/null) && [[ -n "$peers" ]]; then
+        local count=$(echo "$peers" | wc -l)
+        echo "  Found $count peer(s):"
+        echo "$peers" | while read -r peer; do
+            local peer_health
+            if peer_health=$(curl -fsSL --connect-timeout 2 "http://${peer}:${ENV_SYNC_PORT}/health" 2>/dev/null); then
+                local peer_version=$(echo "$peer_health" | grep -o '"version": "[^"]*"' | cut -d'"' -f4)
+                echo "    ✓ $peer (v$peer_version)"
+            else
+                echo "    ✗ $peer (unreachable)"
+            fi
+        done
+    else
+        echo "  No peers found on local network"
+    fi
+    echo ""
+    
+    # Backups
+    echo "Backups:"
+    if [[ -d "$BACKUP_DIR" ]]; then
+        local backup_count=$(find "$BACKUP_DIR" -name "secrets.backup.*" -type f 2>/dev/null | wc -l)
+        echo "  Available backups: $backup_count"
+        if [[ $backup_count -gt 0 ]]; then
+            ls -1t "$BACKUP_DIR"/secrets.backup.* 2>/dev/null | head -5 | while read -r backup; do
+                local backup_name=$(basename "$backup")
+                local backup_time=$(stat -c %y "$backup" 2>/dev/null | cut -d'.' -f1)
+                echo "    - $backup_name ($backup_time)"
+            done
+        fi
+    else
+        echo "  No backups yet"
+    fi
+}
+
+# Init command
+cmd_init() {
+    if [[ -f "$SECRETS_FILE" ]]; then
+        log "WARN" "Secrets file already exists: $SECRETS_FILE"
+        read -p "Overwrite? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log "INFO" "Cancelled"
+            exit 0
+        fi
+        create_backup "$SECRETS_FILE"
+    fi
+    
+    init_secrets_file "$SECRETS_FILE"
+    log "SUCCESS" "Initialized secrets file at $SECRETS_FILE"
+    log "INFO" "Edit the file to add your secrets, then run 'env-sync serve -d'"
+}
+
+# Restore command
+cmd_restore() {
+    local backup_num="${1:-1}"
+    
+    if [[ ! "$backup_num" =~ ^[0-9]+$ ]] || [[ $backup_num -lt 1 ]] || [[ $backup_num -gt $MAX_BACKUPS ]]; then
+        log "ERROR" "Invalid backup number: $backup_num (must be 1-$MAX_BACKUPS)"
+        exit 1
+    fi
+    
+    restore_backup "$backup_num"
+}
+
+# Cron command
+cmd_cron() {
+    local action="show"
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --install) action="install"; shift ;;
+            --remove) action="remove"; shift ;;
+            --show) action="show"; shift ;;
+            *) log "ERROR" "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    
+    case "$action" in
+        install)
+            local cron_line="*/30 * * * * $SCRIPT_DIR/env-sync --quiet sync >/dev/null 2>&1"
+            
+            # Remove existing entry if present
+            (crontab -l 2>/dev/null | grep -v "env-sync" || true) | crontab -
+            
+            # Add new entry
+            (crontab -l 2>/dev/null || true; echo "$cron_line") | crontab -
+            
+            log "SUCCESS" "Installed cron job for 30-minute sync"
+            log "INFO" "Next sync will happen automatically"
+            ;;
+            
+        remove)
+            if crontab -l 2>/dev/null | grep -q "env-sync"; then
+                (crontab -l 2>/dev/null | grep -v "env-sync" || true) | crontab -
+                log "SUCCESS" "Removed cron job"
+            else
+                log "INFO" "No cron job found"
+            fi
+            ;;
+            
+        show)
+            if crontab -l 2>/dev/null | grep -q "env-sync"; then
+                echo "Current cron job:"
+                crontab -l 2>/dev/null | grep "env-sync"
+            else
+                log "INFO" "No cron job installed"
+                echo "Run 'env-sync cron --install' to set up periodic sync"
+            fi
+            ;;
+    esac
+}
+
+# Route to appropriate command
+case "$COMMAND" in
+    sync|s)
+        cmd_sync "$@"
+        ;;
+    serve|server)
+        cmd_serve "$@"
+        ;;
+    discover|discover|d)
+        cmd_discover "$@"
+        ;;
+    status|st)
+        cmd_status
+        ;;
+    init|i)
+        cmd_init
+        ;;
+    restore|r)
+        cmd_restore "$@"
+        ;;
+    cron|c)
+        cmd_cron "$@"
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        log "ERROR" "Unknown command: $COMMAND"
+        show_help
+        exit 1
+        ;;
+esac

@@ -1,0 +1,22 @@
+# env-sync specific
+*.backup.*
+*.bak
+*.log
+~/.secrets.env
+~/.config/env-sync/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test/
+tmp/
+*.test
