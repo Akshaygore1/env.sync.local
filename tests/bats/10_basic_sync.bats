@@ -54,17 +54,13 @@ load 'test_helper'
     run add_secret "$CONTAINER_BETA" "SECOND_KEY" "beta-value-456"
     [ "$status" -eq 0 ]
     
-    run trigger_sync "$CONTAINER_ALPHA"
+    run parallel_run \
+        "trigger_sync \"$CONTAINER_ALPHA\"" \
+        "trigger_sync \"$CONTAINER_GAMMA\""
     [ "$status" -eq 0 ]
     
-    run trigger_sync "$CONTAINER_GAMMA"
+    run parallel_run \
+        "verify_secret \"$CONTAINER_ALPHA\" \"SECOND_KEY\" \"beta-value-456\"" \
+        "verify_secret \"$CONTAINER_GAMMA\" \"SECOND_KEY\" \"beta-value-456\""
     [ "$status" -eq 0 ]
-    
-    run get_secret "$CONTAINER_ALPHA" "SECOND_KEY"
-    [ "$status" -eq 0 ]
-    [ "$output" = "beta-value-456" ]
-    
-    run get_secret "$CONTAINER_GAMMA" "SECOND_KEY"
-    [ "$status" -eq 0 ]
-    [ "$output" = "beta-value-456" ]
 }
