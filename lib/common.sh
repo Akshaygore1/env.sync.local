@@ -750,21 +750,25 @@ cache_peer_pubkey() {
     local cache_file="$AGE_CACHE_DIR/pubkey_cache.json"
     local timestamp=$(get_timestamp)
     
-    # Create cache if doesn't exist
-    if [[ ! -f "$cache_file" ]]; then
+    # Create cache if missing or empty
+    if [[ ! -s "$cache_file" ]]; then
         echo '{}' > "$cache_file"
     fi
     
     # Update cache using jq if available, otherwise use sed
     if command -v jq >/dev/null 2>&1; then
         local temp_cache=$(mktemp)
-        jq --arg host "$hostname" \
-           --arg key "$pubkey" \
-           --arg ts "$timestamp" \
-           --arg first "$(jq -r ".[$hostname].first_seen // \"$timestamp\"" "$cache_file" 2>/dev/null || echo "$timestamp")" \
-           '.[$host] = {"pubkey": $key, "last_seen": $ts, "first_seen": $first}' \
-           "$cache_file" > "$temp_cache"
-        mv "$temp_cache" "$cache_file"
+        if jq --arg host "$hostname" \
+            --arg key "$pubkey" \
+            --arg ts "$timestamp" \
+            --arg first "$(jq -r ".[$hostname].first_seen // \"$timestamp\"" "$cache_file" 2>/dev/null || echo "$timestamp")" \
+            '.[$host] = {"pubkey": $key, "last_seen": $ts, "first_seen": $first}' \
+            "$cache_file" > "$temp_cache"; then
+            mv "$temp_cache" "$cache_file"
+        else
+            rm -f "$temp_cache"
+            log "WARN" "Failed to update pubkey cache"
+        fi
     else
         # Simple sed-based update (jq not available)
         log "DEBUG" "jq not available, skipping cache update"
