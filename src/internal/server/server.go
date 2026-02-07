@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	"envsync/internal/config"
@@ -132,15 +131,4 @@ func checkPort(port string) error {
 	}
 	_ = ln.Close()
 	return nil
-}
-
-func PathToBinary() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return ""
-	}
-	if filepath.Base(exe) == "env-sync" {
-		return exe
-	}
-	return exe
 }

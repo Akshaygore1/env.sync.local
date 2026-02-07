@@ -65,7 +65,7 @@ func Discover(opts Options) ([]string, error) {
 
 	if len(peers) == 0 {
 		logging.Log("WARN", "No env-sync peers found on local network")
-		fmt.Println("")
+		fmt.Println()
 		return peers, nil
 	}
 
@@ -227,7 +227,7 @@ func FetchHealth(host string) (HealthResponse, error) {
 }
 
 func fetchPubkey(host string) string {
-	cmd := exec.Command("ssh", "-n", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=accept-new", host, "cat ~/.config/env-sync/keys/age_key.pub")
+	cmd := exec.Command("ssh", "-n", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking="+sshtransport.HostKeyCheckingMode(), host, "cat ~/.config/env-sync/keys/age_key.pub")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""

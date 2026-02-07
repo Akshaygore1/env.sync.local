@@ -82,7 +82,7 @@ func Run(opts Options) error {
 		return nil
 	}
 
-	logging.Log("INFO", fmt.Sprintf("Searching for newest secrets via %s...", transportName(opts.InsecureHTTP)))
+	logging.Log("INFO", fmt.Sprintf("Searching for newest secrets via %s...", formatTransportName(opts.InsecureHTTP)))
 	newestHost, err := findNewestPeer(opts.InsecureHTTP)
 	if err != nil || newestHost == "" {
 		logging.Log("INFO", "No newer secrets found on network")
@@ -95,7 +95,7 @@ func Run(opts Options) error {
 	return syncFromHost(newestHost, opts.InsecureHTTP)
 }
 
-func transportName(useHTTP bool) string {
+func formatTransportName(useHTTP bool) string {
 	if useHTTP {
 		return "HTTP"
 	}
@@ -329,12 +329,13 @@ func reencryptSecrets(inputFile, outputFile string) error {
 	}
 
 	var newLines []string
+	linePattern := regexp.MustCompile(`^([A-Z_][A-Z0-9_]*)="(.*)"\s*#.*ENVSYNC_UPDATED_AT=(.*)`)
 	for _, line := range strings.Split(content, "\n") {
 		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			newLines = append(newLines, line)
 			continue
 		}
-		matches := regexp.MustCompile(`^([A-Z_][A-Z0-9_]*)="(.*)"\s*#.*ENVSYNC_UPDATED_AT=(.*)`).FindStringSubmatch(line)
+		matches := linePattern.FindStringSubmatch(line)
 		if len(matches) == 0 {
 			newLines = append(newLines, line)
 			continue

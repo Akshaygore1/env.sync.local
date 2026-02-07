@@ -22,12 +22,12 @@ From the project root:
 
 This will:
 1. Build the Go binary (`make build`)
-1. Check prerequisites (Docker, docker-compose, git)
-2. Install bats-core testing framework
-3. Generate SSH keys for containers
-4. Build and start Docker containers
-5. Run all integration tests
-6. Clean up containers after tests
+2. Check prerequisites (Docker, docker-compose, git)
+3. Install bats-core testing framework
+4. Generate SSH keys for containers
+5. Build and start Docker containers
+6. Run all integration tests
+7. Clean up containers after tests
 
 ### Start Test Environment for Manual Testing
 

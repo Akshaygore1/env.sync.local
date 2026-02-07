@@ -23,6 +23,7 @@ import (
 	"envsync/internal/secrets"
 	"envsync/internal/server"
 	syncer "envsync/internal/sync"
+	sshtransport "envsync/internal/transport/ssh"
 )
 
 func Run(argv []string) int {
@@ -209,6 +210,7 @@ Files:
 Environment Variables:
   ENV_SYNC_QUIET=true      # Suppress output
   ENV_SYNC_PORT=5739       # Server port
+  ENV_SYNC_STRICT_SSH=true # Require known_hosts entries for SSH
 
 `)
 }
@@ -257,7 +259,7 @@ func runSync(args []string, usageName string, isClient bool) int {
 			return 0
 		default:
 			if strings.HasPrefix(args[i], "-") {
-				logging.Log("ERROR", "Unknown option: "+args[i])
+				logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", args[i]))
 				return 1
 			}
 			remaining = append(remaining, args[i])
@@ -283,7 +285,7 @@ func runServe(args []string, usageName string) int {
 		switch args[i] {
 		case "-p", "--port":
 			if i+1 >= len(args) {
-				logging.Log("ERROR", "Unknown option: "+args[i])
+				logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", args[i]))
 				return 1
 			}
 			opts.Port = args[i+1]
@@ -301,7 +303,7 @@ func runServe(args []string, usageName string) int {
 			fmt.Println("  -q, --quiet        Quiet mode")
 			return 0
 		default:
-			logging.Log("ERROR", "Unknown option: "+args[i])
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", args[i]))
 			return 1
 		}
 	}
@@ -332,7 +334,7 @@ func runDiscover(args []string, usageName string) int {
 			fmt.Println("  --pubkeys              Show discovered public keys")
 			return 0
 		}
-		logging.Log("ERROR", "Unknown option: "+err.Error())
+		logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", err.Error()))
 		return 1
 	}
 	peers, err := discovery.Discover(opts)
@@ -446,7 +448,7 @@ func runInit(args []string) int {
 			fmt.Println("  --help              Show this help")
 			return 0
 		default:
-			logging.Log("ERROR", "Unknown option: "+args[i])
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", args[i]))
 			return 1
 		}
 	}
@@ -526,6 +528,7 @@ func handleEncryptExisting() int {
 	timestamp := secrets.GetTimestamp()
 	pubkey := keys.GetLocalPubkey()
 	var newLines []string
+	linePattern := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)=(.*)`)
 
 	for _, line := range strings.Split(content, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -533,7 +536,7 @@ func handleEncryptExisting() int {
 			newLines = append(newLines, line)
 			continue
 		}
-		if matches := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)=(.*)`).FindStringSubmatch(line); len(matches) > 0 {
+		if matches := linePattern.FindStringSubmatch(line); len(matches) > 0 {
 			key := matches[1]
 			val := strings.TrimSpace(matches[2])
 			val = strings.Trim(val, "\"")
@@ -597,7 +600,7 @@ func runCron(args []string) int {
 		case "--show":
 			action = "show"
 		default:
-			logging.Log("ERROR", "Unknown option: "+arg)
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", arg))
 			return 1
 		}
 	}
@@ -756,22 +759,26 @@ func runShow(args []string) int {
 		return 1
 	}
 
-	re := regexp.MustCompile(fmt.Sprintf(`^%s=\"(.*)\"\s*#`, regexp.QuoteMeta(key)))
-	if matches := re.FindStringSubmatch(line); len(matches) > 0 {
-		val := matches[1]
-		if keys.IsFileEncrypted(config.SecretsFile()) {
-			decrypted, err := keys.DecryptValue(val)
-			if err != nil {
-				logging.Log("ERROR", "Failed to decrypt value")
-				return 1
+	trimmed := strings.TrimPrefix(line, key+"=")
+	if strings.HasPrefix(trimmed, "\"") {
+		trimmed = strings.TrimPrefix(trimmed, "\"")
+		if end := strings.Index(trimmed, "\""); end >= 0 {
+			val := trimmed[:end]
+			if keys.IsFileEncrypted(config.SecretsFile()) {
+				decrypted, err := keys.DecryptValue(val)
+				if err != nil {
+					logging.Log("ERROR", "Failed to decrypt value")
+					return 1
+				}
+				fmt.Println(decrypted)
+				return 0
 			}
-			fmt.Println(decrypted)
+			fmt.Println(val)
 			return 0
 		}
-		fmt.Println(val)
-		return 0
 	}
-	fmt.Println(strings.TrimPrefix(line, key+"="))
+	val := strings.SplitN(trimmed, "#", 2)[0]
+	fmt.Println(strings.TrimSpace(val))
 	return 0
 }
 
@@ -854,7 +861,7 @@ func runLoad(args []string) int {
 			fmt.Println("  eval \"$(env-sync load 2>/dev/null)\"")
 			return 0
 		default:
-			logging.Log("ERROR", "Unknown option: "+args[i])
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", args[i]))
 			return 1
 		}
 	}
@@ -1043,7 +1050,7 @@ func runKeyShow(args []string) int {
 			fmt.Println("  --private    Show private key (be careful!)")
 			return 0
 		default:
-			logging.Log("ERROR", "Unknown option: "+arg)
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", arg))
 			return 1
 		}
 	}
@@ -1084,7 +1091,7 @@ func runKeyExport(args []string) int {
 			fmt.Println("  --qr    Display as QR code")
 			return 0
 		default:
-			logging.Log("ERROR", "Unknown option: "+arg)
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", arg))
 			return 1
 		}
 	}
@@ -1135,7 +1142,7 @@ func runKeyImport(args []string) int {
 			return 0
 		default:
 			if strings.HasPrefix(args[i], "-") {
-				logging.Log("ERROR", "Unknown option: "+args[i])
+				logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", args[i]))
 				return 1
 			}
 			if pubkey == "" {
@@ -1148,7 +1155,13 @@ func runKeyImport(args []string) int {
 
 	if fromHost != "" {
 		logging.Log("INFO", "Fetching public key from "+fromHost+"...")
-		output, err := exec.Command("ssh", "-o", "ConnectTimeout=5", fromHost, "cat ~/.config/env-sync/keys/age_key.pub").Output()
+		output, err := exec.Command(
+			"ssh",
+			"-o", "ConnectTimeout=5",
+			"-o", "StrictHostKeyChecking="+sshtransport.HostKeyCheckingMode(),
+			fromHost,
+			"cat ~/.config/env-sync/keys/age_key.pub",
+		).Output()
 		if err != nil {
 			logging.Log("ERROR", "Failed to fetch pubkey from "+fromHost)
 			return 1
@@ -1191,7 +1204,7 @@ func runKeyList(args []string) int {
 			fmt.Println("  --local    Show only this machine's key")
 			return 0
 		default:
-			logging.Log("ERROR", "Unknown option: "+arg)
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", arg))
 			return 1
 		}
 	}
@@ -1252,7 +1265,7 @@ func runKeyRequestAccess(args []string) int {
 			fmt.Println("  env-sync key request-access --trigger-all")
 			return 0
 		default:
-			logging.Log("ERROR", "Unknown option: "+args[i])
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", args[i]))
 			return 1
 		}
 	}
@@ -1283,8 +1296,15 @@ func runKeyRequestAccess(args []string) int {
 		triggered := 0
 		for _, host := range hosts {
 			logging.Log("INFO", "Triggering re-encryption on "+host+"...")
-			cmd := exec.Command("ssh", "-o", "ConnectTimeout=5", host,
-				fmt.Sprintf("mkdir -p ~/.config/env-sync/keys/known_hosts && echo '%s' > ~/.config/env-sync/keys/known_hosts/%s.pub && env-sync 2>/dev/null || true && echo 'SUCCESS'", localPubkey, secrets.GetHostname()))
+			cmd := exec.Command(
+				"ssh",
+				"-o", "ConnectTimeout=5",
+				"-o", "StrictHostKeyChecking="+sshtransport.HostKeyCheckingMode(),
+				host,
+				"bash", "-c",
+				"mkdir -p ~/.config/env-sync/keys/known_hosts && printf %s \"$1\" > ~/.config/env-sync/keys/known_hosts/$2.pub && env-sync 2>/dev/null || true && echo 'SUCCESS'",
+				"bash", localPubkey, secrets.GetHostname(),
+			)
 			output, _ := cmd.Output()
 			if strings.Contains(string(output), "SUCCESS") {
 				logging.Log("SUCCESS", "Triggered re-encryption on "+host)
@@ -1320,8 +1340,16 @@ func runKeyRequestAccess(args []string) int {
   "timestamp": "%s"
 }
 `, secrets.GetHostname(), localPubkey, secrets.GetTimestamp())
-			cmd := exec.Command("ssh", "-o", "ConnectTimeout=5", host,
-				fmt.Sprintf("mkdir -p ~/.config/env-sync/requests && cat > ~/.config/env-sync/requests/%s.request << 'EOF'\n%sEOF\n echo 'REQUEST_SENT'", secrets.GetHostname(), payload))
+			cmd := exec.Command(
+				"ssh",
+				"-o", "ConnectTimeout=5",
+				"-o", "StrictHostKeyChecking="+sshtransport.HostKeyCheckingMode(),
+				host,
+				"bash", "-c",
+				"mkdir -p ~/.config/env-sync/requests && cat > ~/.config/env-sync/requests/$1.request && echo 'REQUEST_SENT'",
+				"bash", secrets.GetHostname(),
+			)
+			cmd.Stdin = strings.NewReader(payload)
 			output, _ := cmd.Output()
 			if strings.Contains(string(output), "REQUEST_SENT") {
 				logging.Log("SUCCESS", "Access request sent to "+host)
@@ -1365,7 +1393,7 @@ func runKeyGrantAccess(args []string) int {
 			fmt.Println("  --pubkey <key>       Public key of machine")
 			return 0
 		default:
-			logging.Log("ERROR", "Unknown option: "+args[i])
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", args[i]))
 			return 1
 		}
 	}

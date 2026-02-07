@@ -417,6 +417,9 @@ echo "test" | age -r $(env-sync key show) | age -d -i ~/.config/env-sync/keys/ag
 - ✅ Requires SSH key authentication
 - ✅ File permissions: 600
 - ✅ AGE encryption at rest
+- ⚠️ SSH host keys are auto-accepted on first connect (StrictHostKeyChecking=accept-new)
+  - This is TOFU behavior and can enable MITM attacks on first connection
+  - Set `ENV_SYNC_STRICT_SSH=true` and pre-populate known_hosts for production
 
 **HTTP Mode (Fallback - Insecure)**
 - ❌ Secrets transmitted in plaintext

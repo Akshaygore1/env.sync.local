@@ -17,10 +17,12 @@ import (
 )
 
 var (
-	headerStart = "# === ENV_SYNC_METADATA ==="
-	headerEnd   = "# === END_METADATA ==="
-	footerStart = "# === ENV_SYNC_FOOTER ==="
-	footerEnd   = "# === END_FOOTER ==="
+	headerStart          = "# === ENV_SYNC_METADATA ==="
+	headerEnd            = "# === END_METADATA ==="
+	footerStart          = "# === ENV_SYNC_FOOTER ==="
+	footerEnd            = "# === END_FOOTER ==="
+	lineTimestampPattern = regexp.MustCompile(`ENVSYNC_UPDATED_AT=([0-9TZ:.-]+)`)
+	lineKeyPattern       = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)=`)
 )
 
 func InitSecretsFile(file string, initTimestamp string) error {
@@ -270,12 +272,6 @@ func CompareVersions(v1, v2 string) int {
 			return -1
 		}
 	}
-	if v1 > v2 {
-		return 1
-	}
-	if v1 < v2 {
-		return -1
-	}
 	return 0
 }
 
@@ -388,8 +384,7 @@ func MergeSecretsContent(localContent string, remoteContent string) string {
 }
 
 func getLineTimestamp(line string) string {
-	re := regexp.MustCompile(`ENVSYNC_UPDATED_AT=([0-9TZ:.-]+)`)
-	match := re.FindStringSubmatch(line)
+	match := lineTimestampPattern.FindStringSubmatch(line)
 	if len(match) > 1 {
 		return match[1]
 	}
@@ -397,8 +392,7 @@ func getLineTimestamp(line string) string {
 }
 
 func getLineKey(line string) string {
-	re := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)=`)
-	match := re.FindStringSubmatch(line)
+	match := lineKeyPattern.FindStringSubmatch(line)
 	if len(match) > 1 {
 		return match[1]
 	}

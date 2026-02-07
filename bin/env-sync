@@ -148,6 +148,7 @@ Files:
 Environment Variables:
   ENV_SYNC_QUIET=true      # Suppress output
   ENV_SYNC_PORT=5739       # Server port
+  ENV_SYNC_STRICT_SSH=true # Require known_hosts entries for SSH
 
 EOF
 }

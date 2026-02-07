@@ -120,4 +120,3 @@ func DecryptBytes(encrypted []byte) (string, error) {
     }
     return strings.TrimSpace(out.String()), nil
 }
-
