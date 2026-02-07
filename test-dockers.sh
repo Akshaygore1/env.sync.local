@@ -10,6 +10,7 @@
 #   --setup-only    Only setup the test environment, don't run tests
 #   --filter PATTERN Run only tests matching the pattern
 #   --formatter FMT  Output format (pretty, tap, junit, etc.) [default: pretty]
+#   --skip-go-build Skip building the Go binary (use bash scripts only)
 #   --help          Show this help message
 #
 
@@ -33,9 +34,13 @@ SETUP_ONLY=0
 FILTER=""
 FORMATTER="pretty"
 SHOW_HELP=0
+SKIP_GO_BUILD=0
 # Default to tap in any CI environment
 if [ "${CI:-}" = "true" ]; then
     FORMATTER="tap"
+fi
+if [ "${ENV_SYNC_SKIP_GO_BUILD:-}" = "true" ]; then
+    SKIP_GO_BUILD=1
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -55,6 +60,10 @@ while [[ $# -gt 0 ]]; do
         --formatter)
             FORMATTER="$2"
             shift 2
+            ;;
+        --skip-go-build)
+            SKIP_GO_BUILD=1
+            shift
             ;;
         --help|-h)
             SHOW_HELP=1
@@ -79,6 +88,7 @@ if [ $SHOW_HELP -eq 1 ]; then
     echo "  --setup-only      Only setup the test environment, don't run tests"
     echo "  --filter PATTERN  Run only tests matching the pattern"
     echo "  --formatter FMT   Output format (pretty, tap, junit, etc.) [default: $FORMATTER]"
+    echo "  --skip-go-build   Skip building the Go binary (use bash scripts only)"
     echo "  --help, -h        Show this help message"
     echo ""
     echo "Examples:"
@@ -89,6 +99,19 @@ if [ $SHOW_HELP -eq 1 ]; then
     echo "  ./test-dockers.sh --setup-only                       # Just setup, then exit"
     echo ""
     exit 0
+fi
+
+if [ -z "${ENV_SYNC_GO_BIN:-}" ]; then
+    if [ $SKIP_GO_BUILD -eq 1 ]; then
+        ENV_SYNC_GO_BIN="bin/env-sync"
+    else
+        ENV_SYNC_GO_BIN="target/env-sync"
+    fi
+fi
+export ENV_SYNC_GO_BIN
+
+if [ $SKIP_GO_BUILD -eq 1 ] && [ -z "${ENV_SYNC_USE_BASH:-}" ]; then
+    export ENV_SYNC_USE_BASH="true"
 fi
 
 # Function to print colored messages
@@ -153,8 +176,12 @@ check_prerequisites() {
 setup_environment() {
     print_info "Setting up test environment..."
 
-    print_info "Building Go binary..."
-    make -C "$SCRIPT_DIR" build
+    if [ $SKIP_GO_BUILD -eq 0 ]; then
+        print_info "Building Go binary..."
+        make -C "$SCRIPT_DIR" build
+    else
+        print_info "Skipping Go build (--skip-go-build)"
+    fi
 
     # Generate SSH keys
     print_info "Generating SSH keys..."

@@ -9,10 +9,10 @@ PREFIX ?= /usr/local
 
 build:
 	@mkdir -p $(TARGET_DIR)
-	$(GO) -C $(SRC_DIR) build -o $(BIN) ./cmd/env-sync
+	cd $(SRC_DIR) && $(GO) build -o $(BIN) ./cmd/env-sync
 
 test:
-	$(GO) -C $(SRC_DIR) test ./...
+	cd $(SRC_DIR) && $(GO) test ./...
 
 install: build
 	install -d $(PREFIX)/bin
