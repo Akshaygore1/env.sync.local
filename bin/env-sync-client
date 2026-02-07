@@ -381,7 +381,9 @@ find_newest_peer() {
     
     # Get list of peers
     local peers
+
     # Discovery runs without SSH filtering; connectivity is validated before syncing
+    # Do not filter by SSH here; we test SSH per-peer below
     discover_args=(--quiet)
     if ! peers=$("$SCRIPT_DIR/env-sync-discover" "${discover_args[@]}"); then
         log "WARN" "No peers discovered"
@@ -464,6 +466,8 @@ elif $ALL_PEERS; then
     
     peers=""
     discover_args=(--quiet)
+
+    # Do not filter by SSH here; we test SSH per-peer below
     if ! peers=$("$SCRIPT_DIR/env-sync-discover" "${discover_args[@]}"); then
         log "WARN" "No peers discovered"
         exit 1
@@ -494,7 +498,7 @@ elif $ALL_PEERS; then
         if ! $USE_HTTP; then
             log "INFO" "Tip: Set up SSH keys with: ssh-copy-id hostname.local"
         fi
-        exit 1
+        exit 0
     else
         log "SUCCESS" "Synced from $success_count peer(s)"
     fi
@@ -534,7 +538,7 @@ else
         if ! $USE_HTTP; then
             log "INFO" "Tip: Set up SSH keys with: ssh-copy-id hostname.local"
         fi
-        exit 1
+        exit 0
     else
         log "SUCCESS" "Merged secrets from $success_count peer(s)"
     fi
