@@ -16,6 +16,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install GNU parallel
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y parallel
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
