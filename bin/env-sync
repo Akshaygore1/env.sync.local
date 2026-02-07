@@ -649,65 +649,36 @@ cmd_remove() {
         exit 1
     fi
     
-    # Handle encrypted files
-    local temp_file=""
-    local is_encrypted=false
-    
+    # Handle encrypted files - verify access
     if is_file_encrypted "$SECRETS_FILE"; then
-        is_encrypted=true
         if ! can_decrypt_file "$SECRETS_FILE"; then
             log "ERROR" "Cannot modify encrypted file - you don't have access"
             exit 1
         fi
         
-        # Decrypt to temp file
-        temp_file=$(mktemp)
-        if ! decrypt_secrets_file "$SECRETS_FILE" "$temp_file"; then
-            log "ERROR" "Failed to decrypt secrets file"
-            rm -f "$temp_file"
-            exit 1
-        fi
-        
-        local work_file="$temp_file"
-    else
-        local work_file="$SECRETS_FILE"
+        # Note: We don't need to decrypt the whole file to remove a key
+        # because the keys themselves are plaintext in the new format.
+        # We just remove the line matching the key.
     fi
     
-    # Check if key exists
-    if ! echo "$(get_secrets_content "$work_file")" | grep -q "^$key="; then
+    # Check if key exists (in raw content)
+    local content=$(get_secrets_content "$SECRETS_FILE")
+    if ! echo "$content" | grep -q "^$key="; then
         log "WARN" "Key not found: $key"
-        [[ -n "$temp_file" ]] && rm -f "$temp_file"
         exit 0
     fi
     
     # Create backup
     create_backup "$SECRETS_FILE"
     
-    # Get current content and remove the key
-    local content=$(get_secrets_content "$work_file")
-    content=$(echo "$content" | grep -v "^$key=" | grep -v "^export $key=" | grep -v "^# $key is set$")
+    # Remove the key (and any export prefix)
+    content=$(echo "$content" | grep -v "^$key=" | grep -v "^export $key=")
     
     # Remove empty lines
     content=$(echo "$content" | sed '/^[[:space:]]*$/d')
     
     # Save updated content
-    set_secrets_content "$work_file" "$content"
-    
-    # If encrypted, re-encrypt with all recipients
-    if $is_encrypted; then
-        local recipients=$(get_recipients_from_file "$SECRETS_FILE")
-        IFS=',' read -r -a recipients_array <<< "$recipients"
-        local encrypted_content=$(encrypt_secrets_content "$content" "${recipients_array[@]}")
-        
-        if [[ -z "$encrypted_content" ]]; then
-            log "ERROR" "Failed to encrypt updated content"
-            rm -f "$temp_file"
-            exit 1
-        fi
-        
-        save_encrypted_secrets "$SECRETS_FILE" "$encrypted_content" "$recipients"
-        rm -f "$temp_file"
-    fi
+    set_secrets_content "$SECRETS_FILE" "$content"
     
     log "SUCCESS" "Removed key: $key"
 }

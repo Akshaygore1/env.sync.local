@@ -517,7 +517,7 @@ can_decrypt_file() {
 }
 
 # Decrypt secrets file to plaintext
-# Handles both legacy (full file) and new (per-line) encryption
+# Handles only new (per-line) encryption
 decrypt_secrets_file() {
     local input_file="$1"
     local output_file="${2:-}"
@@ -575,24 +575,9 @@ $line"
         return 1
     fi
     
-    # Extract encrypted block (Legacy format)
-    local encrypted_block=$(sed -n '/-----BEGIN AGE ENCRYPTED FILE-----/,/-----END AGE ENCRYPTED FILE-----/p' "$input_file" | grep -v '^-----')
-    
-    if [[ -z "$encrypted_block" ]]; then
-        # If encrypted flag is set but no block and no new format detected above, something is wrong
-        # Or maybe it's just an empty file initialized with encryption?
-        log "WARN" "No encrypted data found in file (possibly empty or corrupted)"
-        return 0
-    fi
-    
-    # Decode base64 and decrypt
-    if [[ -n "$output_file" ]]; then
-        echo "$encrypted_block" | base64 -d | age -d -i "$AGE_KEY_FILE" -o "$output_file" 2>/dev/null
-    else
-        echo "$encrypted_block" | base64 -d | age -d -i "$AGE_KEY_FILE" 2>/dev/null
-    fi
-    
-    return $?
+    # Legacy format is no longer supported
+    log "ERROR" "Legacy file format detected (full file encryption). Please re-initialize."
+    return 1
 }
 
 # Encrypt a single value for multiple recipients
@@ -723,47 +708,6 @@ merge_secrets_content() {
     for key in "${!lines[@]}"; do
         echo "${lines[$key]}"
     done | sort
-}
-
-# Save encrypted secrets file
-save_encrypted_secrets() {
-    local output_file="$1"
-    local encrypted_content="$2"
-    local recipients="$3"  # Comma-separated list
-    local timestamp_override="${4:-}"
-    
-    local hostname=$(get_hostname)
-    local timestamp="${timestamp_override:-$(get_timestamp)}"
-    local version=$(get_file_version "$output_file" 2>/dev/null || echo "1.0.0")
-    
-    cat > "$output_file" << EOF
-# === ENV_SYNC_METADATA ===
-# VERSION: $version
-# TIMESTAMP: $timestamp
-# HOST: $hostname
-# MODIFIED: $timestamp
-# ENCRYPTED: true
-# RECIPIENTS: $recipients
-# CHECKSUM: 
-# === END_METADATA ===
-
------BEGIN AGE ENCRYPTED FILE-----
-$encrypted_content
------END AGE ENCRYPTED FILE-----
-
-# === ENV_SYNC_FOOTER ===
-# VERSION: $version
-# TIMESTAMP: $timestamp
-# HOST: $hostname
-# === END_FOOTER ===
-EOF
-    
-    chmod 600 "$output_file"
-    
-    # Update checksum
-    local checksum=$(generate_checksum "$output_file")
-    sed -i.bak "s/^# CHECKSUM: .*/# CHECKSUM: $checksum/" "$output_file"
-    rm -f "$output_file.bak"
 }
 
 # Get all known recipient pubkeys from cache
