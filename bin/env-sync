@@ -28,15 +28,25 @@ env-sync - Distributed secrets synchronization tool
 
 Usage: env-sync [command] [options]
 
+SECURITY NOTICE:
+  By default, env-sync uses SCP (SSH) for secure peer-to-peer synchronization.
+  This requires SSH keys to be set up between machines.
+  
+  HTTP mode (--insecure-http) is available as a fallback but is INSECURE:
+  • Secrets transmitted in plaintext
+  • Accessible to any device on the network
+  • No authentication required
+
 Commands:
   sync [options]           Sync secrets from network (default)
     Options:
       -a, --all            Sync from all discovered peers
       -f, --force          Force sync even if local is newer
       -q, --quiet          Quiet mode
+      --insecure-http      Use insecure HTTP instead of SCP (not recommended)
       -h, --help           Show help
 
-  serve [options]          Start HTTP server
+  serve [options]          Start HTTP server (for HTTP mode only)
     Options:
       -p, --port PORT      Port to listen on (default: 5739)
       -d, --daemon         Run as daemon
@@ -48,6 +58,7 @@ Commands:
       -t, --timeout SECS   Discovery timeout (default: 5)
       -q, --quiet          Only output hostnames
       -v, --verbose        Verbose output
+      --ssh                Filter for hosts with SSH access
       -h, --help           Show help
 
   status                   Show sync status and peer information
@@ -65,11 +76,23 @@ Commands:
   help                     Show this help message
 
 Examples:
-  env-sync                 # Run sync (default command)
-  env-sync serve -d        # Start server as daemon
-  env-sync discover        # Find peers on network
-  env-sync status          # Show current status
-  env-sync init            # Create new secrets file
+  env-sync                           # Run sync via SCP (secure, default)
+  env-sync serve -d                  # Start HTTP server (for HTTP mode)
+  env-sync discover                  # Find peers on network
+  env-sync status                    # Show current status
+  env-sync init                      # Create new secrets file
+
+Setup Instructions:
+  1. Ensure SSH keys are set up between machines:
+     ssh-copy-id other-machine.local
+  
+  2. Initialize and start sync:
+     env-sync init
+     env-sync                         # Uses SCP by default
+  
+  3. To use insecure HTTP mode (not recommended):
+     env-sync serve -d                # Start HTTP server
+     env-sync --insecure-http         # Sync via HTTP
 
 Files:
   ~/.secrets.env           # Main secrets file
@@ -88,6 +111,7 @@ cmd_sync() {
     local all=false
     local force=false
     local quiet=false
+    local insecure_http=false
     local args=()
     
     while [[ $# -gt 0 ]]; do
@@ -95,12 +119,22 @@ cmd_sync() {
             -a|--all) all=true; shift ;;
             -f|--force) force=true; shift ;;
             -q|--quiet) quiet=true; shift ;;
+            --insecure-http) insecure_http=true; shift ;;
             -h|--help)
                 echo "Usage: env-sync sync [options]"
+                echo ""
+                echo "Syncs secrets from peers using SCP (SSH) by default."
+                echo ""
                 echo "Options:"
-                echo "  -a, --all      Sync from all discovered peers"
-                echo "  -f, --force    Force sync even if local is newer"
-                echo "  -q, --quiet    Quiet mode"
+                echo "  -a, --all              Sync from all discovered peers"
+                echo "  -f, --force            Force sync even if local is newer"
+                echo "  -q, --quiet            Quiet mode"
+                echo "  --insecure-http        Use insecure HTTP instead of SCP (not recommended)"
+                echo ""
+                echo "Examples:"
+                echo "  env-sync sync                           # Sync via SCP (secure)"
+                echo "  env-sync sync mbp16.local               # Sync from specific host"
+                echo "  env-sync sync --insecure-http           # Sync via HTTP (INSECURE)"
                 exit 0
                 ;;
             *) args+=("$1"); shift ;;
@@ -114,6 +148,7 @@ cmd_sync() {
     local client_args=()
     $all && client_args+=("--all")
     $force && client_args+=("--force")
+    $insecure_http && client_args+=("--insecure-http")
     
     if [[ ${#args[@]} -gt 0 ]]; then
         client_args+=("${args[@]}")

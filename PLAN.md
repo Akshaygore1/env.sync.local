@@ -136,7 +136,19 @@ AWS_ACCESS_KEY_ID="AKIA..."
 
 ## Network Protocol
 
-### HTTP Endpoints
+### SCP Mode (Default - Secure)
+Uses SCP over SSH for encrypted, authenticated file transfer:
+```bash
+# From source machine to local temp file
+scp -o ConnectTimeout=5 hostname.local:~/.secrets.env /tmp/secrets.tmp
+```
+
+**Requirements**:
+- SSH keys must be set up between machines (`ssh-copy-id`)
+- SCP command available on all machines
+
+### HTTP Mode (Fallback - Insecure)
+HTTP endpoints for plaintext transfer (not recommended):
 ```
 GET /secrets.env
   Response Headers:
@@ -149,6 +161,8 @@ GET /secrets.env
 GET /health
   Response: {"status": "ok", "version": "1.2.3", "timestamp": "..."}
 ```
+
+**Warning**: Only use HTTP mode on completely trusted networks. Displays large security warning when used.
 
 ### mDNS Service Registration
 - Service Type: `_envsync._tcp`

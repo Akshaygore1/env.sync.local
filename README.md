@@ -1,17 +1,42 @@
 # env-sync
 
-Distributed secrets synchronization tool for local networks. Sync your `.env` style secrets across multiple machines without a central server.
+Distributed secrets synchronization tool for local networks. Sync your `.env` style secrets across multiple machines using **SCP/SSH by default** for security.
+
+## ⚠️ Security Model
+
+**Default Mode: SCP/SSH (Secure)**
+- Uses SCP over SSH for encrypted peer-to-peer synchronization
+- Requires SSH keys to be set up between machines
+- Secrets are never transmitted in plaintext
+
+**Fallback Mode: HTTP (Insecure)**
+- Available with `--insecure-http` flag
+- ⚠️ **WARNING**: Transmits secrets in plaintext
+- ⚠️ Accessible to any device on your local network
+- Only use if SSH keys cannot be set up
 
 ## Features
 
+- **Secure by Default**: Uses SCP/SSH for encrypted sync
 - **Distributed**: No master server, all machines are equal
-- **Automatic Discovery**: Uses mDNS/Bonjour to find peers automatically
+- **Automatic Discovery**: Uses mDNS/Bonjour to find peers
 - **Easy Expansion**: Add new machines without changing existing ones
 - **Version Control**: Built-in versioning and conflict resolution
 - **Backup System**: Automatic backups before overwriting
 - **Cross-Platform**: Works on Linux, macOS, and Windows (WSL2)
 
 ## Quick Start
+
+### Prerequisites
+
+Ensure SSH keys are set up between your machines:
+
+```bash
+# On each machine, copy your SSH key to other machines
+ssh-copy-id beelink.local
+ssh-copy-id mbp16.local
+ssh-copy-id razer.local
+```
 
 ### Installation
 
@@ -38,22 +63,19 @@ env-sync init
 # 2. Edit secrets
 nano ~/.secrets.env
 
-# 3. Start the server
-env-sync serve -d
-
-# 4. Set up periodic sync (optional)
+# 3. Set up periodic sync (optional)
 env-sync cron --install
 ```
 
-That's it! The machines will automatically discover each other and sync.
+That's it! The machines will automatically discover each other and sync via SCP.
 
 ## Usage
 
 ### Commands
 
 ```bash
-env-sync                    # Sync secrets from network (default)
-env-sync serve -d          # Start HTTP server as daemon
+env-sync                    # Sync secrets via SCP (secure, default)
+env-sync serve -d          # Start HTTP server (for HTTP mode only)
 env-sync discover          # Find peers on network
 env-sync status            # Show current status
 env-sync init              # Create new secrets file
@@ -62,12 +84,41 @@ env-sync cron --install    # Setup 30-min sync cron job
 env-sync --help            # Show full help
 ```
 
-### Sync Options
+### Insecure HTTP Mode (Not Recommended)
+
+Only use if SSH keys cannot be set up:
 
 ```bash
-env-sync sync -a          # Sync from all discovered peers
-env-sync sync -f          # Force sync even if local is newer
-env-sync sync hostname    # Sync from specific host
+# 1. Start HTTP server on all machines
+env-sync serve -d
+
+# 2. Sync using HTTP (displays security warning)
+env-sync --insecure-http
+```
+
+**⚠️ Security Warning when using HTTP:**
+```
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ⚠️  SECURITY WARNING: USING INSECURE HTTP MODE                            ║
+║                                                                            ║
+║  You are using the insecure HTTP sync mode. This exposes your secrets:     ║
+║  • Transmitted in PLAINTEXT over the network                               ║
+║  • Accessible to ANY device on your local network                          ║
+║  • No authentication or encryption                                         ║
+╚════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Setup SSH Keys Between Machines
+
+```bash
+# Generate SSH key if you don't have one
+ssh-keygen -t ed25519 -C "your-email@example.com"
+
+# Copy to other machines
+ssh-copy-id hostname.local
+
+# Test connection
+ssh hostname.local "echo Connected!"
 ```
 
 ### Secrets File Format
@@ -98,23 +149,28 @@ DATABASE_URL="postgres://..."
 ## How It Works
 
 ### 1. Discovery
-- Each machine runs an HTTP server on port 5739
 - Machines advertise themselves via mDNS (`_envsync._tcp`)
 - Peers are automatically discovered on the local network
+- In SCP mode: Filters for hosts with SSH access available
 
-### 2. Sync Process
+### 2. Sync Process (SCP Mode - Default)
 - When syncing, your machine queries all discovered peers
+- Uses SCP over SSH to fetch secrets file from each peer
 - Compares version numbers and timestamps
 - Downloads the newest version
 - Creates backup before overwriting
-- Updates local metadata
 
-### 3. Conflict Resolution
+### 3. Sync Process (HTTP Mode - Insecure)
+- Each machine runs an HTTP server on port 5739
+- Fetches via unencrypted HTTP
+- ⚠️ **WARNING**: Secrets transmitted in plaintext!
+
+### 4. Conflict Resolution
 1. Compare timestamps (newer wins)
 2. If equal, compare version numbers (higher wins)
 3. If both equal, use hostname as tiebreaker
 
-### 4. Triggers
+### 5. Triggers
 - **Shell startup**: Quick background sync when opening terminal
 - **Cron job**: Every 30 minutes (if installed)
 - **Manual**: Run `env-sync` anytime
@@ -129,11 +185,13 @@ To add a 4th machine (e.g., `surface.local`):
 # 1. Install env-sync
 curl -fsSL https://raw.githubusercontent.com/yourusername/env-sync/main/install.sh | bash
 
-# 2. Initialize
-env-sync init
+# 2. Set up SSH keys
+ssh-copy-id beelink.local
+ssh-copy-id mbp16.local
+ssh-copy-id razer.local
 
-# 3. Start server
-env-sync serve -d
+# 3. Initialize
+env-sync init
 
 # 4. Sync to get existing secrets
 env-sync
@@ -145,16 +203,16 @@ env-sync
 
 ### Linux (Ubuntu/Debian)
 ```bash
-sudo apt-get install avahi-daemon avahi-utils curl netcat-openbsd
+sudo apt-get install avahi-daemon avahi-utils curl openssh-client
 ```
 
 ### Linux (Fedora/RHEL)
 ```bash
-sudo dnf install avahi avahi-tools curl nmap-ncat
+sudo dnf install avahi avahi-tools curl openssh-clients
 ```
 
 ### macOS
-Built-in support (uses `dns-sd`). No additional dependencies.
+Built-in support. No additional dependencies.
 
 ### Windows
 Use WSL2 with the Linux instructions above.
@@ -165,7 +223,7 @@ Use WSL2 with the Linux instructions above.
 
 ```bash
 ENV_SYNC_QUIET=true      # Suppress output
-ENV_SYNC_PORT=5739       # Change server port
+ENV_SYNC_PORT=5739       # Change server port (HTTP mode only)
 ```
 
 ### Shell Integration
@@ -189,38 +247,35 @@ fi
 ~/.config/env-sync/config         # Configuration
 ~/.config/env-sync/backups/       # Backup files
 ~/.config/env-sync/logs/          # Sync logs
-~/.config/env-sync/server.pid     # Server process ID
 ```
-
-## Network Details
-
-- **Port**: 5739 (ENV-SYNC in T9)
-- **Protocol**: HTTP (local network only)
-- **Discovery**: mDNS/Bonjour (`_envsync._tcp`)
-- **Hostname**: Uses `.local` domain (e.g., `beelink.local`)
 
 ## Troubleshooting
 
 ### No peers found
 ```bash
+# Check SSH connectivity
+ssh hostname.local "echo OK"
+
+# Test discovery
+env-sync discover -v  # Verbose discovery
+
 # Check if avahi is running (Linux)
 sudo systemctl status avahi-daemon
-
-# Manual discovery
-avahi-browse -a  # List all mDNS services
-
-# Test connectivity
-env-sync discover -v  # Verbose discovery
-curl http://beelink.local:5739/health  # Test specific host
 ```
 
-### Server won't start
+### SSH connection fails
 ```bash
-# Check if port is in use
-lsof -i :5739
+# Test SSH connectivity
+ssh -v hostname.local
 
-# Try different port
-env-sync serve -p 5740
+# Copy SSH key again
+ssh-copy-id hostname.local
+
+# Check SSH key permissions
+ls -la ~/.ssh/
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/id_*
+chmod 644 ~/.ssh/id_*.pub
 ```
 
 ### Sync not working
@@ -241,23 +296,34 @@ tail -f ~/.config/env-sync/logs/env-sync.log
 chmod 600 ~/.secrets.env
 ```
 
-## Security Notes
+## Security Considerations
 
 ### Current Implementation
-- No encryption (secrets stored in plaintext)
-- HTTP transport (local network only)
-- File permissions: 600 (owner only)
 
-### Future: Encryption Support
-The tool is designed to easily add encryption later:
-- Will encrypt values while keeping metadata plaintext
-- Support for age/sops encryption
-- Key management via age keys
+**SCP Mode (Default - Recommended)**
+- ✅ Encrypted transmission via SSH
+- ✅ Requires SSH key authentication
+- ✅ File permissions: 600
+
+**HTTP Mode (Fallback - Insecure)**
+- ❌ Secrets transmitted in plaintext
+- ❌ Accessible to any device on network
+- ❌ No authentication required
 
 ### Recommendations
-- Only use on trusted local networks
-- Use firewall rules to block port 5739 from external networks
-- Consider VPN if syncing across untrusted networks
+
+1. **Always use SCP mode (default)**
+2. Set up SSH keys between all machines
+3. Only use HTTP mode on completely trusted networks
+4. Use firewall rules to block port 5739 externally if using HTTP mode
+5. Regular backups
+
+### Future: Encryption Support
+
+Even in SCP mode, we plan to add encryption for defense in depth:
+- Encrypt values while keeping metadata plaintext
+- Support for age/sops encryption
+- Key management via age keys
 
 ## Development
 
@@ -267,13 +333,13 @@ env-sync/
 ├── bin/
 │   ├── env-sync              # Main CLI
 │   ├── env-sync-discover     # Peer discovery
-│   ├── env-sync-client       # Sync client
+│   ├── env-sync-client       # Sync client (SCP/HTTP)
 │   └── env-sync-serve        # HTTP server
 ├── lib/
 │   └── common.sh             # Shared functions
 ├── install.sh                # Installation script
 ├── README.md                 # This file
-└── PLAN.md                   # Implementation plan
+└── AGENTS.md                 # Developer documentation
 ```
 
 ### Testing
@@ -298,9 +364,17 @@ Contributions welcome! Please read CONTRIBUTING.md for guidelines.
 
 ## Roadmap
 
+- [x] SCP/SSH sync (secure by default)
 - [ ] Native Windows support (without WSL)
 - [ ] Encryption support (age/sops)
 - [ ] Web UI for management
 - [ ] Selective sync (whitelist/blacklist secrets)
 - [ ] Conflict resolution UI
 - [ ] Docker container support
+
+## Resources
+
+- SSH Key Setup: https://www.ssh.com/academy/ssh/copy-id
+- mDNS: https://www.ietf.org/rfc/rfc6762.txt
+- Avahi: https://www.avahi.org/
+- Bonjour: https://developer.apple.com/bonjour/

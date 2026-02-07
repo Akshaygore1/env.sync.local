@@ -5,6 +5,7 @@
 #   -t, --timeout SECONDS  Discovery timeout (default: 5)
 #   -q, --quiet            Only output hostnames
 #   -v, --verbose          Verbose output
+#   --ssh                  Filter for hosts with SSH access
 
 set -euo pipefail
 
@@ -13,6 +14,7 @@ source "$SCRIPT_DIR/../lib/common.sh"
 
 TIMEOUT=5
 VERBOSE=false
+FILTER_SSH=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -29,12 +31,17 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
+        --ssh)
+            FILTER_SSH=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: env-sync-discover [options]"
             echo "Options:"
             echo "  -t, --timeout SECONDS  Discovery timeout (default: 5)"
             echo "  -q, --quiet            Only output hostnames"
             echo "  -v, --verbose          Verbose output"
+            echo "  --ssh                  Filter for hosts with SSH access"
             exit 0
             ;;
         *)
@@ -55,6 +62,17 @@ detect_os() {
 }
 
 OS=$(detect_os)
+
+# Test SSH connectivity
+test_ssh() {
+    local host="$1"
+    # Use SSH with batch mode to avoid password prompts
+    if ssh -o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$host" "echo OK" >/dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
 
 # Discover peers using avahi (Linux)
 discover_avahi() {
@@ -190,6 +208,18 @@ main() {
     # Remove duplicates and sort
     if [[ -n "$peers" ]]; then
         peers=$(echo "$peers" | sort -u)
+    fi
+    
+    # Filter for SSH access if requested
+    if $FILTER_SSH; then
+        local ssh_peers=""
+        while IFS= read -r peer; do
+            [[ -z "$peer" ]] && continue
+            if test_ssh "$peer"; then
+                ssh_peers="${ssh_peers}${peer}\n"
+            fi
+        done <<< "$peers"
+        peers=$(echo -e "$ssh_peers" | grep -v '^$' || true)
     fi
     
     # Count results
