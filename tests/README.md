@@ -20,6 +20,8 @@ From the project root:
 ./test-dockers.sh
 ```
 
+Tests set `ENV_SYNC_DISCOVERY_TIMEOUT=2` inside containers to keep discovery waits short. Override it by exporting a different value before running the tests.
+
 This will:
 1. Build the Go binary (`make build`)
 2. Check prerequisites (Docker, docker-compose, git)

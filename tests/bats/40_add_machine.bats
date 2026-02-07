@@ -3,6 +3,9 @@
 load 'test_helper'
 
 @test "Start delta container (4th machine)" {
+    # Ensure any previous delta container is removed
+    docker rm -f "$CONTAINER_DELTA" 2>/dev/null || true
+
     # Start delta container dynamically using the alpha image
     # (all three images are identical, we just need to pick one)
     docker run -d \
