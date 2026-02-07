@@ -54,12 +54,12 @@ load 'test_helper'
 
 @test "SSH connectivity between containers works" {
     # Test alpha can SSH to beta
-    run container_exec "$CONTAINER_ALPHA" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no beta.local echo "OK"
+    run container_exec "$CONTAINER_ALPHA" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no beta.local echo "OK" 2>/dev/null
     [ "$status" -eq 0 ]
     [ "$output" = "OK" ]
     
     # Test alpha can SSH to gamma
-    run container_exec "$CONTAINER_ALPHA" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no gamma.local echo "OK"
+    run container_exec "$CONTAINER_ALPHA" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no gamma.local echo "OK" 2>/dev/null
     [ "$status" -eq 0 ]
     [ "$output" = "OK" ]
 }
