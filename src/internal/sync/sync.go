@@ -95,6 +95,7 @@ func Run(opts Options) error {
 	return syncFromHost(newestHost, opts.InsecureHTTP)
 }
 
+// ReencryptLocal updates local secrets encryption when new recipients are added.
 func ReencryptLocal() {
 	maybeReencryptLocal()
 }
