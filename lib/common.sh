@@ -35,8 +35,8 @@ log() {
         case "$level" in
             ERROR) echo -e "${RED}ERROR:${NC} $message" >&2 ;;
             WARN)  echo -e "${YELLOW}WARN:${NC} $message" >&2 ;;
-            INFO)  echo -e "${BLUE}INFO:${NC} $message" ;;
-            SUCCESS) echo -e "${GREEN}SUCCESS:${NC} $message" ;;
+            INFO)  echo -e "${BLUE}INFO:${NC} $message" >&2 ;;
+            SUCCESS) echo -e "${GREEN}SUCCESS:${NC} $message" >&2 ;;
         esac
     fi
 }

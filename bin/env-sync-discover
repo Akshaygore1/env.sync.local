@@ -80,7 +80,7 @@ OS=$(detect_os)
 test_ssh() {
     local host="$1"
     # Use SSH with batch mode to avoid password prompts
-    if ssh -o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$host" "echo OK" >/dev/null 2>&1; then
+    if ssh -n -o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$host" "echo OK" >/dev/null 2>&1; then
         return 0
     else
         return 1
@@ -268,7 +268,7 @@ main() {
                 
                 if $COLLECT_KEYS || $SHOW_PUBKEYS; then
                     # Try to fetch pubkey via SSH
-                    peer_pubkey=$(ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$peer" "cat ~/.config/env-sync/keys/age_key.pub" 2>/dev/null || echo "")
+                    peer_pubkey=$(ssh -n -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$peer" "cat ~/.config/env-sync/keys/age_key.pub" 2>/dev/null || echo "")
                     if [[ -n "$peer_pubkey" ]]; then
                         # Cache the pubkey
                         cache_peer_pubkey "$peer" "$peer_pubkey"
@@ -291,7 +291,7 @@ main() {
             [[ -z "$peer" ]] && continue
             
             # Try to fetch pubkey via SSH
-            local pubkey=$(ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$peer" "cat ~/.config/env-sync/keys/age_key.pub" 2>/dev/null || echo "")
+            local pubkey=$(ssh -n -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$peer" "cat ~/.config/env-sync/keys/age_key.pub" 2>/dev/null || echo "")
             if [[ -n "$pubkey" ]]; then
                 cache_peer_pubkey "$peer" "$pubkey"
                 log "SUCCESS" "Cached public key from $peer"

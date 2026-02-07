@@ -104,7 +104,7 @@ fi
 test_ssh() {
     local host="$1"
     # Use SSH with batch mode to avoid password prompts
-    if ssh -o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$host" "echo OK" >/dev/null 2>&1; then
+    if ssh -n -o BatchMode=yes -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$host" "echo OK" >/dev/null 2>&1; then
         return 0
     else
         return 1
@@ -120,7 +120,7 @@ fetch_via_scp() {
     log "INFO" "Fetching from $host via SCP..."
     
     # Fetch file with scp
-    if ! scp -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "$remote_path" "$tmp_file" >/dev/null 2>&1; then
+    if ! scp -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "$remote_path" "$tmp_file" </dev/null >/dev/null 2>&1; then
         log "WARN" "Failed to fetch from $host via SCP (SSH key may not be set up)"
         rm -f "$tmp_file"
         return 1
