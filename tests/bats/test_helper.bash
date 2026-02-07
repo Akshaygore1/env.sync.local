@@ -206,7 +206,11 @@ container_exec() {
     if [[ -n "${ENV_SYNC_DISCOVERY_TIMEOUT:-}" ]]; then
         env_args+=(-e "ENV_SYNC_DISCOVERY_TIMEOUT=$ENV_SYNC_DISCOVERY_TIMEOUT")
     fi
-    docker exec "${env_args[@]}" --user envsync "$container" "$@"
+    if [[ ${#env_args[@]} -gt 0 ]]; then
+        docker exec "${env_args[@]}" --user envsync "$container" "$@"
+    else
+        docker exec --user envsync "$container" "$@"
+    fi
 }
 
 # Helper: Initialize env-sync in a container
