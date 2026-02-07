@@ -1188,7 +1188,7 @@ func runKeyImport(args []string) int {
 		return 1
 	}
 	logging.Log("SUCCESS", "Imported public key for "+hostname)
-	syncer.ReencryptLocalIfNeeded()
+	syncer.ReencryptLocal()
 	logging.Log("INFO", "Run 'env-sync' to sync secrets with peers")
 	return 0
 }

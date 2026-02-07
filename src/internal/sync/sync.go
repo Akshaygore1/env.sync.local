@@ -95,7 +95,7 @@ func Run(opts Options) error {
 	return syncFromHost(newestHost, opts.InsecureHTTP)
 }
 
-func ReencryptLocalIfNeeded() {
+func ReencryptLocal() {
 	maybeReencryptLocal()
 }
 
