@@ -55,7 +55,7 @@ get_timestamp() {
 generate_checksum() {
     local file="$1"
     if [[ -f "$file" ]]; then
-        sha256sum "$file" | cut -d' ' -f1
+        sed 's/^# CHECKSUM: .*/# CHECKSUM: /' "$file" | sha256sum | cut -d' ' -f1
     else
         echo ""
     fi

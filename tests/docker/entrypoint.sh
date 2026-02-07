@@ -5,6 +5,10 @@
 USER_NAME="envsync"
 USER_HOME="/home/envsync"
 SSH_WORK_DIR="/tmp/ssh-work"
+AVAHI_SERVICE_DIR="/etc/avahi/services"
+AVAHI_SERVICE_FILE="${AVAHI_SERVICE_DIR}/env-sync.service"
+KNOWN_HOSTS_FILE="${USER_HOME}/.ssh/known_hosts"
+SSH_CONFIG_FILE="${USER_HOME}/.ssh/config"
 
 echo "[entrypoint] Starting env-sync test container: $HOSTNAME"
 
@@ -36,13 +40,24 @@ chmod 700 ${USER_HOME}/.ssh
 cp ${SSH_WORK_DIR}/id_ed25519 ${USER_HOME}/.ssh/id_ed25519 2>/dev/null || true
 cp ${SSH_WORK_DIR}/id_ed25519.pub ${USER_HOME}/.ssh/id_ed25519.pub 2>/dev/null || true
 cp ${SSH_WORK_DIR}/authorized_keys ${USER_HOME}/.ssh/authorized_keys 2>/dev/null || true
-cp ${SSH_WORK_DIR}/known_hosts ${USER_HOME}/.ssh/known_hosts 2>/dev/null || true
+
+# Ensure known_hosts exists
+touch ${KNOWN_HOSTS_FILE} 2>/dev/null || true
 
 chown -R ${USER_NAME}:${USER_NAME} ${USER_HOME}/.ssh
 chmod 600 ${USER_HOME}/.ssh/id_ed25519 2>/dev/null || true
 chmod 644 ${USER_HOME}/.ssh/id_ed25519.pub 2>/dev/null || true
 chmod 644 ${USER_HOME}/.ssh/authorized_keys 2>/dev/null || true
-chmod 600 ${USER_HOME}/.ssh/known_hosts 2>/dev/null || true
+chmod 600 ${KNOWN_HOSTS_FILE} 2>/dev/null || true
+
+# Set SSH client config to reduce noisy output in tests
+cat > ${SSH_CONFIG_FILE} << 'EOF'
+Host *
+    StrictHostKeyChecking no
+    LogLevel ERROR
+EOF
+chown ${USER_NAME}:${USER_NAME} ${SSH_CONFIG_FILE} 2>/dev/null || true
+chmod 600 ${SSH_CONFIG_FILE} 2>/dev/null || true
 
 echo "[entrypoint] SSH directory set up at ${USER_HOME}/.ssh"
 
@@ -65,6 +80,21 @@ if [ -d /var/run/dbus ]; then
 fi
 mkdir -p /var/run/dbus 2>/dev/null || true
 dbus-daemon --system --fork 2>/dev/null || echo "[entrypoint] D-Bus note: non-fatal"
+
+# Register env-sync mDNS service for discovery
+echo "[entrypoint] Registering env-sync mDNS service..."
+mkdir -p ${AVAHI_SERVICE_DIR} 2>/dev/null || true
+cat > ${AVAHI_SERVICE_FILE} << EOF
+<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">%h</name>
+  <service>
+    <type>_envsync._tcp</type>
+    <port>${ENV_SYNC_PORT:-5739}</port>
+  </service>
+</service-group>
+EOF
 
 # Start Avahi for mDNS
 echo "[entrypoint] Starting Avahi daemon..."
@@ -94,11 +124,18 @@ fi
 echo "[entrypoint] Populating SSH known_hosts..."
 for host in alpha.local beta.local gamma.local; do
     if [ "$host" != "$HOSTNAME" ]; then
-        su - ${USER_NAME} -c "ssh-keyscan -H $host >> ${SSH_WORK_DIR}/known_hosts 2>/dev/null" || echo "[entrypoint] Note: Could not scan $host yet"
+        for attempt in 1 2 3 4 5; do
+            scan_output=$(su - ${USER_NAME} -c "ssh-keyscan -T 2 -H $host 2>/dev/null" || true)
+            if [ -n "$scan_output" ]; then
+                echo "$scan_output" >> ${KNOWN_HOSTS_FILE}
+                break
+            fi
+            sleep 1
+        done
     fi
 done
-chown ${USER_NAME}:${USER_NAME} ${SSH_WORK_DIR}/known_hosts 2>/dev/null || true
-chmod 600 ${SSH_WORK_DIR}/known_hosts 2>/dev/null || true
+chown ${USER_NAME}:${USER_NAME} ${KNOWN_HOSTS_FILE} 2>/dev/null || true
+chmod 600 ${KNOWN_HOSTS_FILE} 2>/dev/null || true
 
 echo "[entrypoint] Container is ready: $HOSTNAME"
 

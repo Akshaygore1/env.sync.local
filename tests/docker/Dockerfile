@@ -33,8 +33,8 @@ RUN sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/ss
 RUN echo 'envsync ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/envsync && \
     chmod 440 /etc/sudoers.d/envsync
 
-# Configure Avahi for mDNS (disable D-Bus)
-RUN sed -i 's/#enable-dbus=yes/enable-dbus=no/' /etc/avahi/avahi-daemon.conf
+# Configure Avahi for mDNS (enable D-Bus)
+RUN sed -i 's/#enable-dbus=yes/enable-dbus=yes/' /etc/avahi/avahi-daemon.conf
 RUN sed -i 's/hosts:.*files dns/hosts: files mdns_minimal [NOTFOUND=return] dns mdns/' /etc/nsswitch.conf
 
 # Copy env-sync binaries (built from source)

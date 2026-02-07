@@ -98,7 +98,7 @@ discover_avahi() {
     
     # Browse for env-sync services
     local results
-    results=$(timeout "$timeout" avahi-browse -t -r "$ENV_SYNC_SERVICE" 2>/dev/null || true)
+    results=$(timeout "$timeout" avahi-browse -t -r -p "$ENV_SYNC_SERVICE" 2>/dev/null || true)
     
     if [[ -z "$results" ]]; then
         return 0
@@ -106,7 +106,7 @@ discover_avahi() {
     
     # Parse results to extract hostnames
     echo "$results" | grep -E "^=" | while read -r line; do
-        local hostname=$(echo "$line" | awk '{print $7}')
+        local hostname=$(echo "$line" | awk -F';' '{print $7}')
         if [[ -n "$hostname" ]]; then
             # Remove trailing dot if present
             hostname="${hostname%.}"

@@ -316,7 +316,11 @@ find_newest_peer() {
     
     # Get list of peers
     local peers
-    if ! peers=$("$SCRIPT_DIR/env-sync-discover" --quiet ${USE_HTTP:---ssh}); then
+    local discover_args=(--quiet)
+    if ! $USE_HTTP; then
+        discover_args+=(--ssh)
+    fi
+    if ! peers=$("$SCRIPT_DIR/env-sync-discover" "${discover_args[@]}"); then
         log "WARN" "No peers discovered"
         return 1
     fi
@@ -380,7 +384,11 @@ elif $ALL_PEERS; then
     log "INFO" "Syncing from all discovered peers..."
     
     peers=""
-    if ! peers=$("$SCRIPT_DIR/env-sync-discover" --quiet ${USE_HTTP:---ssh}); then
+    local discover_args=(--quiet)
+    if ! $USE_HTTP; then
+        discover_args+=(--ssh)
+    fi
+    if ! peers=$("$SCRIPT_DIR/env-sync-discover" "${discover_args[@]}"); then
         log "WARN" "No peers discovered"
         exit 1
     fi

@@ -168,7 +168,7 @@ verify_secret_all() {
 # Helper: Get AGE public key from container
 get_pubkey() {
     local container="$1"
-    container_exec "$container" env-sync key show 2>/dev/null || echo ""
+    container_exec "$container" env-sync key export 2>/dev/null || echo ""
 }
 
 # Helper: Import public key to container

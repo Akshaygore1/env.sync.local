@@ -2,6 +2,7 @@ version: '3.8'
 
 networks:
   env-sync-test:
+    name: env-sync-test
     driver: bridge
     ipam:
       config:
@@ -76,5 +77,8 @@ services:
 
 volumes:
   alpha-data:
+    name: env-sync-test_alpha-data
   beta-data:
+    name: env-sync-test_beta-data
   gamma-data:
+    name: env-sync-test_gamma-data
