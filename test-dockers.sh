@@ -17,7 +17,6 @@ set -e
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TESTS_DIR="$SCRIPT_DIR/tests"
-BATS_DIR="$TESTS_DIR/bats-core"
 BATS_TEST_DIR="$TESTS_DIR/bats"
 
 # Colors for output
@@ -97,25 +96,15 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Function to setup bats-core
-setup_bats() {
-    print_info "Setting up bats-core testing framework..."
+# Function to check for bats
+check_bats() {
+    print_info "Checking for bats testing framework..."
     
-    if [ -d "$BATS_DIR" ]; then
-        print_info "bats-core already exists, updating..."
-        cd "$BATS_DIR"
-        git pull --quiet 2>/dev/null || true
+    if command -v bats &> /dev/null; then
+        print_success "bats is installed"
+        export BATS_BIN="bats"
     else
-        print_info "Cloning bats-core repository..."
-        git clone --depth 1 --quiet https://github.com/bats-core/bats-core.git "$BATS_DIR"
-    fi
-    
-    # Verify bats is available
-    if [ -f "$BATS_DIR/bin/bats" ]; then
-        print_success "bats-core is ready"
-        export BATS_BIN="$BATS_DIR/bin/bats"
-    else
-        print_error "Failed to setup bats-core"
+        print_error "bats is not installed. Please install bats-core on your system."
         exit 1
     fi
 }
@@ -146,13 +135,6 @@ check_prerequisites() {
         exit 1
     fi
     print_success "Docker Compose is available"
-    
-    # Check git (for bats-core)
-    if ! command -v git &> /dev/null; then
-        print_error "git is required to fetch bats-core"
-        exit 1
-    fi
-    print_success "git is available"
 }
 
 # Function to setup test environment
@@ -198,8 +180,8 @@ echo ""
 # Check prerequisites
 check_prerequisites
 
-# Setup bats-core
-setup_bats
+# Check for bats
+check_bats
 
 # Setup environment
 setup_environment

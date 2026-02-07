@@ -21,6 +21,13 @@ setup() {
     export RED='\033[0;31m'
     export YELLOW='\033[1;33m'
     export NC='\033[0m' # No Color
+
+    # Detect Docker Compose
+    if command -v docker-compose &> /dev/null; then
+        export DOCKER_COMPOSE="docker-compose"
+    elif docker compose version &> /dev/null; then
+        export DOCKER_COMPOSE="docker compose"
+    fi
 }
 
 # Teardown function - runs after each test
