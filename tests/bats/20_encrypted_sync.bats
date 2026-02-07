@@ -13,10 +13,9 @@ load 'test_helper'
 }
 
 @test "Verify encrypted file exists on alpha" {
-    run container_exec "$CONTAINER_ALPHA" test -f /home/envsync/.secrets.env
-    [ "$status" -eq 0 ]
-    
-    run container_exec "$CONTAINER_ALPHA" grep -q "ENCRYPTED: true" /home/envsync/.secrets.env
+    run parallel_run \
+        "container_exec \"$CONTAINER_ALPHA\" test -f /home/envsync/.secrets.env" \
+        "container_exec \"$CONTAINER_ALPHA\" grep -q \"ENCRYPTED: true\" /home/envsync/.secrets.env"
     [ "$status" -eq 0 ]
 }
 
@@ -38,48 +37,70 @@ load 'test_helper'
 }
 
 @test "Get beta's and gamma's AGE public keys" {
-    BETA_PUBKEY=$(get_pubkey "$CONTAINER_BETA")
+    local beta_pubkey_file
+    local gamma_pubkey_file
+
+    beta_pubkey_file=$(mktemp)
+    gamma_pubkey_file=$(mktemp)
+
+    run parallel_run \
+        "get_pubkey \"$CONTAINER_BETA\" > \"$beta_pubkey_file\"" \
+        "get_pubkey \"$CONTAINER_GAMMA\" > \"$gamma_pubkey_file\""
+    [ "$status" -eq 0 ]
+
+    BETA_PUBKEY=$(<"$beta_pubkey_file")
     [ -n "$BETA_PUBKEY" ]
     export BETA_PUBKEY
     echo "Beta pubkey: $BETA_PUBKEY" >&3
-    
-    GAMMA_PUBKEY=$(get_pubkey "$CONTAINER_GAMMA")
+
+    GAMMA_PUBKEY=$(<"$gamma_pubkey_file")
     [ -n "$GAMMA_PUBKEY" ]
     export GAMMA_PUBKEY
     echo "Gamma pubkey: $GAMMA_PUBKEY" >&3
+
+    rm -f "$beta_pubkey_file" "$gamma_pubkey_file"
 }
 
 @test "Exchange public keys between all containers" {
-    # Import keys to alpha
-    run import_pubkey "$CONTAINER_ALPHA" "$(get_pubkey "$CONTAINER_BETA")" "beta.local"
+    local alpha_pubkey_file
+    local beta_pubkey_file
+    local gamma_pubkey_file
+    local alpha_pubkey
+    local beta_pubkey
+    local gamma_pubkey
+
+    alpha_pubkey_file=$(mktemp)
+    beta_pubkey_file=$(mktemp)
+    gamma_pubkey_file=$(mktemp)
+
+    run parallel_run \
+        "get_pubkey \"$CONTAINER_ALPHA\" > \"$alpha_pubkey_file\"" \
+        "get_pubkey \"$CONTAINER_BETA\" > \"$beta_pubkey_file\"" \
+        "get_pubkey \"$CONTAINER_GAMMA\" > \"$gamma_pubkey_file\""
     [ "$status" -eq 0 ]
-    
-    run import_pubkey "$CONTAINER_ALPHA" "$(get_pubkey "$CONTAINER_GAMMA")" "gamma.local"
-    [ "$status" -eq 0 ]
-    
-    # Import keys to beta
-    run import_pubkey "$CONTAINER_BETA" "$(get_pubkey "$CONTAINER_ALPHA")" "alpha.local"
-    [ "$status" -eq 0 ]
-    
-    run import_pubkey "$CONTAINER_BETA" "$(get_pubkey "$CONTAINER_GAMMA")" "gamma.local"
-    [ "$status" -eq 0 ]
-    
-    # Import keys to gamma
-    run import_pubkey "$CONTAINER_GAMMA" "$(get_pubkey "$CONTAINER_ALPHA")" "alpha.local"
-    [ "$status" -eq 0 ]
-    
-    run import_pubkey "$CONTAINER_GAMMA" "$(get_pubkey "$CONTAINER_BETA")" "beta.local"
+
+    alpha_pubkey=$(<"$alpha_pubkey_file")
+    beta_pubkey=$(<"$beta_pubkey_file")
+    gamma_pubkey=$(<"$gamma_pubkey_file")
+
+    rm -f "$alpha_pubkey_file" "$beta_pubkey_file" "$gamma_pubkey_file"
+
+    [ -n "$alpha_pubkey" ]
+    [ -n "$beta_pubkey" ]
+    [ -n "$gamma_pubkey" ]
+
+    run parallel_run \
+        "import_pubkey \"$CONTAINER_ALPHA\" \"$beta_pubkey\" \"beta.local\" && import_pubkey \"$CONTAINER_ALPHA\" \"$gamma_pubkey\" \"gamma.local\"" \
+        "import_pubkey \"$CONTAINER_BETA\" \"$alpha_pubkey\" \"alpha.local\" && import_pubkey \"$CONTAINER_BETA\" \"$gamma_pubkey\" \"gamma.local\"" \
+        "import_pubkey \"$CONTAINER_GAMMA\" \"$alpha_pubkey\" \"alpha.local\" && import_pubkey \"$CONTAINER_GAMMA\" \"$beta_pubkey\" \"beta.local\""
     [ "$status" -eq 0 ]
 }
 
 @test "Trigger sync on all containers to exchange encrypted secrets" {
-    run trigger_sync "$CONTAINER_ALPHA"
-    [ "$status" -eq 0 ]
-    
-    run trigger_sync "$CONTAINER_BETA"
-    [ "$status" -eq 0 ]
-    
-    run trigger_sync "$CONTAINER_GAMMA"
+    run parallel_run \
+        "trigger_sync \"$CONTAINER_ALPHA\"" \
+        "trigger_sync \"$CONTAINER_BETA\"" \
+        "trigger_sync \"$CONTAINER_GAMMA\""
     [ "$status" -eq 0 ]
 }
 
@@ -96,8 +117,9 @@ load 'test_helper'
 }
 
 @test "Verify all containers have encrypted files" {
-    for container in "$CONTAINER_ALPHA" "$CONTAINER_BETA" "$CONTAINER_GAMMA"; do
-        run container_exec "$container" grep -q "ENCRYPTED: true" /home/envsync/.secrets.env
-        [ "$status" -eq 0 ]
-    done
+    run parallel_run \
+        "container_exec \"$CONTAINER_ALPHA\" grep -q \"ENCRYPTED: true\" /home/envsync/.secrets.env" \
+        "container_exec \"$CONTAINER_BETA\" grep -q \"ENCRYPTED: true\" /home/envsync/.secrets.env" \
+        "container_exec \"$CONTAINER_GAMMA\" grep -q \"ENCRYPTED: true\" /home/envsync/.secrets.env"
+    [ "$status" -eq 0 ]
 }
