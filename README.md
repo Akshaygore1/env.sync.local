@@ -7,6 +7,7 @@
 [![Linux](https://img.shields.io/badge/Linux-Supported-FCC624?logo=linux&logoColor=white)](https://kernel.org/)
 [![macOS](https://img.shields.io/badge/macOS-Supported-000000?logo=apple&logoColor=white)](https://apple.com/macos/)
 [![Windows](https://img.shields.io/badge/Windows%20(WSL2)-Supported-0078D6?logo=windows11&logoColor=white)](https://docs.microsoft.com/en-us/windows/wsl/)
+[![BATS Tests](https://github.com/championswimmer/env.sync.local/actions/workflows/bats-tests.yml/badge.svg)](https://github.com/championswimmer/env.sync.local/actions/workflows/bats-tests.yml)
 
 Distributed secrets synchronization tool for local networks with **AGE encryption**. Sync your `.env` style secrets securely across multiple machines using SCP/SSH with at-rest encryption.
 
