@@ -40,26 +40,16 @@ load 'test_helper'
 }
 
 @test "Containers can reach each other via mDNS" {
-    # Test alpha can resolve beta and gamma
-    run container_exec "$CONTAINER_ALPHA" getent hosts beta.local
-    [ "$status" -eq 0 ]
-    
-    run container_exec "$CONTAINER_ALPHA" getent hosts gamma.local
-    [ "$status" -eq 0 ]
-    
-    # Test beta can resolve alpha and gamma
-    run container_exec "$CONTAINER_BETA" getent hosts alpha.local
+    run parallel_run \
+        "container_exec \"$CONTAINER_ALPHA\" getent hosts beta.local" \
+        "container_exec \"$CONTAINER_ALPHA\" getent hosts gamma.local" \
+        "container_exec \"$CONTAINER_BETA\" getent hosts alpha.local"
     [ "$status" -eq 0 ]
 }
 
 @test "SSH connectivity between containers works" {
-    # Test alpha can SSH to beta
-    run container_exec "$CONTAINER_ALPHA" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no beta.local echo "OK" 2>/dev/null
+    run parallel_run \
+        "container_exec \"$CONTAINER_ALPHA\" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no beta.local echo \"OK\" 2>/dev/null | grep -qx \"OK\"" \
+        "container_exec \"$CONTAINER_ALPHA\" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no gamma.local echo \"OK\" 2>/dev/null | grep -qx \"OK\""
     [ "$status" -eq 0 ]
-    [ "$output" = "OK" ]
-    
-    # Test alpha can SSH to gamma
-    run container_exec "$CONTAINER_ALPHA" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no gamma.local echo "OK" 2>/dev/null
-    [ "$status" -eq 0 ]
-    [ "$output" = "OK" ]
 }

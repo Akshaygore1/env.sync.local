@@ -30,17 +30,11 @@ load 'test_helper'
 }
 
 @test "Verify original encrypted secret still exists on all containers" {
-    run get_secret "$CONTAINER_ALPHA" "ENCRYPTED_SECRET"
+    run parallel_run \
+        "verify_secret \"$CONTAINER_ALPHA\" \"ENCRYPTED_SECRET\" \"secret-value-789\"" \
+        "verify_secret \"$CONTAINER_BETA\" \"ENCRYPTED_SECRET\" \"secret-value-789\"" \
+        "verify_secret \"$CONTAINER_GAMMA\" \"ENCRYPTED_SECRET\" \"secret-value-789\""
     [ "$status" -eq 0 ]
-    [ "$output" = "secret-value-789" ]
-    
-    run get_secret "$CONTAINER_BETA" "ENCRYPTED_SECRET"
-    [ "$status" -eq 0 ]
-    [ "$output" = "secret-value-789" ]
-    
-    run get_secret "$CONTAINER_GAMMA" "ENCRYPTED_SECRET"
-    [ "$status" -eq 0 ]
-    [ "$output" = "secret-value-789" ]
 }
 
 @test "Add multiple secrets to gamma" {
@@ -55,18 +49,14 @@ load 'test_helper'
 }
 
 @test "Sync all containers and verify multiple secrets propagated" {
-    run trigger_sync "$CONTAINER_ALPHA"
+    run parallel_run \
+        "trigger_sync \"$CONTAINER_ALPHA\"" \
+        "trigger_sync \"$CONTAINER_BETA\""
     [ "$status" -eq 0 ]
     
-    run trigger_sync "$CONTAINER_BETA"
+    run parallel_run \
+        "verify_secret \"$CONTAINER_ALPHA\" \"MULTI_1\" \"value-1\"" \
+        "verify_secret \"$CONTAINER_BETA\" \"MULTI_2\" \"value-2\"" \
+        "verify_secret \"$CONTAINER_ALPHA\" \"MULTI_3\" \"value-3\""
     [ "$status" -eq 0 ]
-    
-    run get_secret "$CONTAINER_ALPHA" "MULTI_1"
-    [ "$output" = "value-1" ]
-    
-    run get_secret "$CONTAINER_BETA" "MULTI_2"
-    [ "$output" = "value-2" ]
-    
-    run get_secret "$CONTAINER_ALPHA" "MULTI_3"
-    [ "$output" = "value-3" ]
 }
