@@ -95,6 +95,10 @@ func Run(opts Options) error {
 	return syncFromHost(newestHost, opts.InsecureHTTP)
 }
 
+func ReencryptLocalIfNeeded() {
+	maybeReencryptLocal()
+}
+
 func formatTransportName(useHTTP bool) string {
 	if useHTTP {
 		return "HTTP"
