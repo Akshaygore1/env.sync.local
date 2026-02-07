@@ -381,6 +381,7 @@ find_newest_peer() {
     
     # Get list of peers
     local peers
+    # Discovery runs without SSH filtering; connectivity is validated before syncing
     discover_args=(--quiet)
     if ! peers=$("$SCRIPT_DIR/env-sync-discover" "${discover_args[@]}"); then
         log "WARN" "No peers discovered"
