@@ -9,6 +9,8 @@ AVAHI_SERVICE_DIR="/etc/avahi/services"
 AVAHI_SERVICE_FILE="${AVAHI_SERVICE_DIR}/env-sync.service"
 KNOWN_HOSTS_FILE="${USER_HOME}/.ssh/known_hosts"
 SSH_CONFIG_FILE="${USER_HOME}/.ssh/config"
+KEYSCAN_TIMEOUT="${ENV_SYNC_KEYSCAN_TIMEOUT:-1}"
+KEYSCAN_ATTEMPTS="${ENV_SYNC_KEYSCAN_ATTEMPTS:-3}"
 
 echo "[entrypoint] Starting env-sync test container: $HOSTNAME"
 
@@ -124,8 +126,8 @@ fi
 echo "[entrypoint] Populating SSH known_hosts..."
 for host in alpha.local beta.local gamma.local; do
     if [ "$host" != "$HOSTNAME" ]; then
-        for attempt in 1 2 3 4 5; do
-            scan_output=$(su - ${USER_NAME} -c "ssh-keyscan -T 2 -H $host 2>/dev/null" || true)
+        for ((attempt=1; attempt<=KEYSCAN_ATTEMPTS; attempt++)); do
+            scan_output=$(su - ${USER_NAME} -c "ssh-keyscan -T ${KEYSCAN_TIMEOUT} -H $host 2>/dev/null" || true)
             if [ -n "$scan_output" ]; then
                 echo "$scan_output" >> ${KNOWN_HOSTS_FILE}
                 break

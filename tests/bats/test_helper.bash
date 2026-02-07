@@ -9,6 +9,7 @@ setup() {
     export TESTS_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
     export UTILS_DIR="$TESTS_DIR/utils"
     export DOCKER_DIR="$TESTS_DIR/docker"
+    export ENV_SYNC_DISCOVERY_TIMEOUT="${ENV_SYNC_DISCOVERY_TIMEOUT:-2}"
     
     # Container names
     export CONTAINER_ALPHA="env-sync-alpha"
@@ -201,7 +202,15 @@ wait_for_network_removed() {
 container_exec() {
     local container="$1"
     shift
-    docker exec --user envsync "$container" "$@"
+    local env_args=()
+    if [[ -n "${ENV_SYNC_DISCOVERY_TIMEOUT:-}" ]]; then
+        env_args+=(-e "ENV_SYNC_DISCOVERY_TIMEOUT=$ENV_SYNC_DISCOVERY_TIMEOUT")
+    fi
+    if [[ ${#env_args[@]} -gt 0 ]]; then
+        docker exec "${env_args[@]}" --user envsync "$container" "$@"
+    else
+        docker exec --user envsync "$container" "$@"
+    fi
 }
 
 # Helper: Initialize env-sync in a container
