@@ -10,7 +10,7 @@ load 'test_helper'
         --hostname delta.local \
         --network env-sync-test \
         --ip 172.20.0.5 \
-        -v "$DOCKER_DIR/ssh-keys:/home/envsync/.ssh:ro" \
+        -v "$DOCKER_DIR/ssh-keys:/mnt/ssh-keys:ro" \
         -e ENV_SYNC_DEBUG=1 \
         -e CONTAINER_NAME=delta \
         --privileged \

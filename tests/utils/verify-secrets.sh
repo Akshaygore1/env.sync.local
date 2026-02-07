@@ -25,7 +25,7 @@ for container in env-sync-alpha env-sync-beta env-sync-gamma; do
     fi
     
     # Get secret value from container
-    ACTUAL=$(docker exec "$container" env-sync show "$KEY" 2>/dev/null || echo "")
+    ACTUAL=$(docker exec --user envsync "$container" env-sync show "$KEY" 2>/dev/null || echo "")
     
     if [ "$ACTUAL" != "$EXPECTED_VALUE" ]; then
         echo "  ✗ $container: MISMATCH"

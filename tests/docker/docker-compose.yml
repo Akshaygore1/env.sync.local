@@ -20,7 +20,7 @@ services:
         aliases:
           - alpha.local
     volumes:
-      - ./ssh-keys:/home/envsync/.ssh:ro
+      - ./ssh-keys:/mnt/ssh-keys:ro
       - alpha-data:/home/envsync/.config/env-sync
     environment:
       - ENV_SYNC_DEBUG=1
@@ -28,7 +28,7 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_PTRACE
-    privileged: true  # Required for avahi-daemon
+    privileged: true
 
   beta:
     build:
@@ -42,7 +42,7 @@ services:
         aliases:
           - beta.local
     volumes:
-      - ./ssh-keys:/home/envsync/.ssh:ro
+      - ./ssh-keys:/mnt/ssh-keys:ro
       - beta-data:/home/envsync/.config/env-sync
     environment:
       - ENV_SYNC_DEBUG=1
@@ -64,7 +64,7 @@ services:
         aliases:
           - gamma.local
     volumes:
-      - ./ssh-keys:/home/envsync/.ssh:ro
+      - ./ssh-keys:/mnt/ssh-keys:ro
       - gamma-data:/home/envsync/.config/env-sync
     environment:
       - ENV_SYNC_DEBUG=1

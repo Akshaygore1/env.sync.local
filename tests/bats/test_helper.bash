@@ -90,11 +90,11 @@ wait_for_containers() {
     done
 }
 
-# Helper: Run command in container
+# Helper: Run command in container as envsync user
 container_exec() {
     local container="$1"
     shift
-    docker exec "$container" "$@"
+    docker exec --user envsync "$container" "$@"
 }
 
 # Helper: Initialize env-sync in a container
