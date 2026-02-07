@@ -13,8 +13,8 @@ load 'test_helper'
     docker rm "$CONTAINER_DELTA" 2>/dev/null || true
     
     # Verify cleanup
-    run docker ps -a --format "{{.Names}}" | grep -E "^env-sync-(alpha|beta|gamma|delta)$"
-    [ "$status" -ne 0 ]
+    run wait_for_containers_removed 60 "$CONTAINER_ALPHA" "$CONTAINER_BETA" "$CONTAINER_GAMMA" "$CONTAINER_DELTA"
+    [ "$status" -eq 0 ]
 }
 
 @test "Clean up Docker volumes" {
@@ -24,6 +24,6 @@ load 'test_helper'
     docker volume rm -f env-sync-test_gamma-data 2>/dev/null || true
     
     # Verify network is removed
-    run docker network ls --format "{{.Name}}" | grep "^env-sync-test$"
-    [ "$status" -ne 0 ]
+    run wait_for_network_removed "env-sync-test" 60
+    [ "$status" -eq 0 ]
 }

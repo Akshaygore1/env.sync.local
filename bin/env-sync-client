@@ -227,6 +227,65 @@ reencrypt_secrets() {
     return 0
 }
 
+# Re-encrypt local file if new recipients were added
+maybe_reencrypt_local() {
+    if [[ ! -f "$SECRETS_FILE" ]]; then
+        return 0
+    fi
+
+    if ! is_file_encrypted "$SECRETS_FILE"; then
+        return 0
+    fi
+
+    if ! can_decrypt_file "$SECRETS_FILE"; then
+        return 0
+    fi
+
+    local temp_decrypted=$(mktemp)
+    if ! decrypt_secrets_file "$SECRETS_FILE" "$temp_decrypted"; then
+        rm -f "$temp_decrypted"
+        return 1
+    fi
+
+    local plain_content
+    plain_content=$(sed '/^[[:space:]]*#/d' "$temp_decrypted" | sed '/^[[:space:]]*$/d')
+    if [[ -z "$plain_content" ]]; then
+        rm -f "$temp_decrypted"
+        return 0
+    fi
+
+    local recipients_in_file=$(get_recipients_from_file "$SECRETS_FILE")
+    local missing=false
+
+    local recipients_all=()
+    while IFS= read -r recipient; do
+        [[ -z "$recipient" ]] && continue
+        recipients_all+=("$recipient")
+    done < <(get_all_known_recipients)
+
+    if [[ ${#recipients_all[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    for recipient in "${recipients_all[@]}"; do
+        if [[ "$recipients_in_file" != *"$recipient"* ]]; then
+            missing=true
+            break
+        fi
+    done
+
+    if ! $missing; then
+        rm -f "$temp_decrypted"
+        return 0
+    fi
+
+    if reencrypt_secrets "$temp_decrypted" "$SECRETS_FILE"; then
+        log "SUCCESS" "Re-encrypted local secrets with updated recipients"
+    fi
+
+    rm -f "$temp_decrypted"
+}
+
 # Function to sync from a specific host
 sync_from_host() {
     local host="$1"
@@ -313,6 +372,12 @@ sync_from_host() {
 find_newest_peer() {
     local newest_host=""
     local newest_file=""
+    local newest_file_is_local=false
+
+    if [[ -f "$SECRETS_FILE" ]]; then
+        newest_file="$SECRETS_FILE"
+        newest_file_is_local=true
+    fi
     
     # Get list of peers
     local peers
@@ -347,10 +412,19 @@ find_newest_peer() {
         # Fetch and check
         local remote_file
         if remote_file=$(fetch_from_host "$peer"); then
+            if is_file_encrypted "$remote_file" && ! can_decrypt_file "$remote_file"; then
+                log "DEBUG" "Cannot decrypt file from $peer (skipping)"
+                rm -f "$remote_file"
+                continue
+            fi
+
             if [[ -z "$newest_file" ]] || is_newer "$remote_file" "$newest_file"; then
                 newest_host="$peer"
-                [[ -n "$newest_file" ]] && rm -f "$newest_file"
+                if [[ -n "$newest_file" && "$newest_file_is_local" == false ]]; then
+                    rm -f "$newest_file"
+                fi
                 newest_file="$remote_file"
+                newest_file_is_local=false
             else
                 rm -f "$remote_file"
             fi
@@ -358,6 +432,9 @@ find_newest_peer() {
     done <<< "$peers"
     
     if [[ -z "$newest_host" ]]; then
+        if [[ -n "$newest_file" && "$newest_file_is_local" == false ]]; then
+            rm -f "$newest_file"
+        fi
         if ! $USE_HTTP; then
             log "WARN" "No valid peers found via SSH"
             log "INFO" "Tip: Ensure SSH keys are set up between machines"
@@ -367,10 +444,14 @@ find_newest_peer() {
     fi
     
     echo "$newest_host"
-    [[ -n "$newest_file" ]] && rm -f "$newest_file"
+    if [[ -n "$newest_file" && "$newest_file_is_local" == false ]]; then
+        rm -f "$newest_file"
+    fi
 }
 
 # Main execution
+maybe_reencrypt_local
+
 if [[ -n "$TARGET_HOST" ]]; then
     # Sync from specific host
     if ! $USE_HTTP && ! test_ssh "$TARGET_HOST"; then

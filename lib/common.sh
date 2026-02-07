@@ -8,6 +8,7 @@ set -euo pipefail
 ENV_SYNC_VERSION="1.0.0"
 ENV_SYNC_PORT="5739"
 ENV_SYNC_SERVICE="_envsync._tcp"
+ENV_SYNC_INIT_TIMESTAMP="${ENV_SYNC_INIT_TIMESTAMP:-1970-01-01T00:00:00Z}"
 SECRETS_FILE="${HOME}/.secrets.env"
 CONFIG_DIR="${HOME}/.config/env-sync"
 BACKUP_DIR="${CONFIG_DIR}/backups"
@@ -226,8 +227,9 @@ restore_backup() {
 # Initialize new secrets file
 init_secrets_file() {
     local file="$1"
+    local init_timestamp="${2:-$ENV_SYNC_INIT_TIMESTAMP}"
     local hostname=$(get_hostname)
-    local timestamp=$(get_timestamp)
+    local timestamp="$init_timestamp"
     local version="1.0.0"
     
     mkdir -p "$(dirname "$file")"
@@ -344,8 +346,13 @@ get_secrets_content() {
         return
     fi
     
-    # Extract content between metadata header and footer
-    awk '/^# === END_METADATA ===/{found=1; next} /^# === ENV_SYNC_FOOTER ===/{found=0} found' "$file"
+    if grep -q "^# === END_METADATA ===" "$file"; then
+        # Extract content between metadata header and footer
+        awk '/^# === END_METADATA ===/{found=1; next} /^# === ENV_SYNC_FOOTER ===/{found=0} found' "$file"
+    else
+        # Decrypted encrypted content has no metadata
+        cat "$file"
+    fi
 }
 
 # Set secrets content (update file while preserving metadata)
@@ -568,9 +575,10 @@ save_encrypted_secrets() {
     local output_file="$1"
     local encrypted_content="$2"
     local recipients="$3"  # Comma-separated list
+    local timestamp_override="${4:-}"
     
     local hostname=$(get_hostname)
-    local timestamp=$(get_timestamp)
+    local timestamp="${timestamp_override:-$(get_timestamp)}"
     local version=$(get_file_version "$output_file" 2>/dev/null || echo "1.0.0")
     
     cat > "$output_file" << EOF

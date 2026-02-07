@@ -97,6 +97,106 @@ wait_for_containers() {
     done
 }
 
+# Helper: Wait for a single container to be running
+wait_for_container() {
+    local container="$1"
+    local timeout=${2:-30}
+    local start_time=$(date +%s)
+
+    while true; do
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+
+        if [ $elapsed -ge $timeout ]; then
+            echo "TIMEOUT: Container $container did not start within ${timeout}s"
+            return 1
+        fi
+
+        if docker ps --format "{{.Names}}" | grep -q "^${container}$"; then
+            return 0
+        fi
+
+        sleep 1
+    done
+}
+
+# Helper: Wait for a container to be removed
+wait_for_container_removed() {
+    local container="$1"
+    local timeout=${2:-30}
+    local start_time=$(date +%s)
+
+    while true; do
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+
+        if [ $elapsed -ge $timeout ]; then
+            echo "TIMEOUT: Container $container was not removed within ${timeout}s"
+            return 1
+        fi
+
+        if ! docker ps -a --format "{{.Names}}" | grep -q "^${container}$"; then
+            return 0
+        fi
+
+        sleep 1
+    done
+}
+
+# Helper: Wait for all containers to be removed
+wait_for_containers_removed() {
+    local timeout=${1:-30}
+    shift
+    local start_time=$(date +%s)
+
+    while true; do
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+
+        if [ $elapsed -ge $timeout ]; then
+            echo "TIMEOUT: Containers not removed within ${timeout}s"
+            return 1
+        fi
+
+        local all_gone=true
+        for container in "$@"; do
+            if docker ps -a --format "{{.Names}}" | grep -q "^${container}$"; then
+                all_gone=false
+                break
+            fi
+        done
+
+        if $all_gone; then
+            return 0
+        fi
+
+        sleep 1
+    done
+}
+
+# Helper: Wait for a network to be removed
+wait_for_network_removed() {
+    local network="$1"
+    local timeout=${2:-30}
+    local start_time=$(date +%s)
+
+    while true; do
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+
+        if [ $elapsed -ge $timeout ]; then
+            echo "TIMEOUT: Network $network was not removed within ${timeout}s"
+            return 1
+        fi
+
+        if ! docker network ls --format "{{.Name}}" | grep -q "^${network}$"; then
+            return 0
+        fi
+
+        sleep 1
+    done
+}
+
 # Helper: Run command in container as envsync user
 container_exec() {
     local container="$1"

@@ -392,7 +392,7 @@ cmd_init() {
         
         # Save encrypted file
         create_backup "$SECRETS_FILE"
-        save_encrypted_secrets "$SECRETS_FILE" "$encrypted_content" "$local_pubkey"
+        save_encrypted_secrets "$SECRETS_FILE" "$encrypted_content" "$local_pubkey" "$ENV_SYNC_INIT_TIMESTAMP"
         
         log "SUCCESS" "Encrypted existing secrets file"
         log "INFO" "Run 'env-sync' to sync with peers and add them as recipients"
@@ -576,7 +576,8 @@ $key=\"$value\""
     # If encrypted, re-encrypt with all recipients
     if $is_encrypted; then
         local recipients=$(get_recipients_from_file "$SECRETS_FILE")
-        local encrypted_content=$(encrypt_secrets_content "$content" "$recipients")
+        IFS=',' read -r -a recipients_array <<< "$recipients"
+        local encrypted_content=$(encrypt_secrets_content "$content" "${recipients_array[@]}")
         
         if [[ -z "$encrypted_content" ]]; then
             log "ERROR" "Failed to encrypt updated content"
@@ -660,7 +661,8 @@ cmd_remove() {
     # If encrypted, re-encrypt with all recipients
     if $is_encrypted; then
         local recipients=$(get_recipients_from_file "$SECRETS_FILE")
-        local encrypted_content=$(encrypt_secrets_content "$content" "$recipients")
+        IFS=',' read -r -a recipients_array <<< "$recipients"
+        local encrypted_content=$(encrypt_secrets_content "$content" "${recipients_array[@]}")
         
         if [[ -z "$encrypted_content" ]]; then
             log "ERROR" "Failed to encrypt updated content"

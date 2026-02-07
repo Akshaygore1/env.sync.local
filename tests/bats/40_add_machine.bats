@@ -15,11 +15,9 @@ load 'test_helper'
         -e CONTAINER_NAME=delta \
         --privileged \
         docker-alpha:latest
-    
+
     # Wait for delta to be ready
-    sleep 8
-    
-    run docker ps --format "{{.Names}}" | grep "^${CONTAINER_DELTA}$"
+    run wait_for_container "$CONTAINER_DELTA" 60
     [ "$status" -eq 0 ]
 }
 
@@ -115,9 +113,9 @@ load 'test_helper'
 
 @test "Stop and remove delta container" {
     docker stop "$CONTAINER_DELTA" 2>/dev/null || true
-    docker rm "$CONTAINER_DELTA" 2>/dev/null || true
+    docker rm -f "$CONTAINER_DELTA" 2>/dev/null || true
     
     # Verify it's gone
-    run docker ps -a --format "{{.Names}}" | grep "^${CONTAINER_DELTA}$"
-    [ "$status" -ne 0 ]
+    run wait_for_container_removed "$CONTAINER_DELTA" 60
+    [ "$status" -eq 0 ]
 }
