@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"
 
-TIMEOUT=5
+TIMEOUT="${ENV_SYNC_DISCOVERY_TIMEOUT:-5}"
 VERBOSE=false
 FILTER_SSH=false
 COLLECT_KEYS=false
