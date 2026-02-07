@@ -374,3 +374,328 @@ set_secrets_content() {
     # Update metadata
     update_metadata "$file"
 }
+
+# AGE Key Management Functions
+# ============================
+
+# Directory for AGE keys
+AGE_KEY_DIR="$CONFIG_DIR/keys"
+AGE_KEY_FILE="$AGE_KEY_DIR/age_key"
+AGE_PUBKEY_FILE="$AGE_KEY_DIR/age_key.pub"
+AGE_CACHE_DIR="$AGE_KEY_DIR/cache"
+AGE_KNOWN_HOSTS_DIR="$AGE_KEY_DIR/known_hosts"
+
+# Initialize AGE directories
+init_age_dirs() {
+    mkdir -p "$AGE_KEY_DIR"
+    mkdir -p "$AGE_CACHE_DIR"
+    mkdir -p "$AGE_KNOWN_HOSTS_DIR"
+    chmod 700 "$AGE_KEY_DIR"
+}
+
+# Check if age is installed
+check_age_installed() {
+    if ! command -v age >/dev/null 2>&1; then
+        log "ERROR" "age is not installed. Install with: brew install age (macOS) or apt install age (Linux)"
+        return 1
+    fi
+    if ! command -v age-keygen >/dev/null 2>&1; then
+        log "ERROR" "age-keygen is not installed. Install age package."
+        return 1
+    fi
+    return 0
+}
+
+# Generate AGE key pair
+generate_age_key() {
+    init_age_dirs
+    
+    if [[ -f "$AGE_KEY_FILE" ]]; then
+        log "WARN" "AGE key already exists at $AGE_KEY_FILE"
+        return 1
+    fi
+    
+    # Generate key
+    age-keygen -o "$AGE_KEY_FILE" 2>/dev/null
+    chmod 600 "$AGE_KEY_FILE"
+    
+    # Extract public key
+    local pubkey=$(age-keygen -y "$AGE_KEY_FILE" 2>/dev/null)
+    echo "$pubkey" > "$AGE_PUBKEY_FILE"
+    chmod 644 "$AGE_PUBKEY_FILE"
+    
+    log "SUCCESS" "Generated AGE key pair"
+    log "INFO" "Public key: $pubkey"
+    
+    return 0
+}
+
+# Get local AGE public key
+get_local_age_pubkey() {
+    if [[ -f "$AGE_PUBKEY_FILE" ]]; then
+        cat "$AGE_PUBKEY_FILE"
+    else
+        echo ""
+    fi
+}
+
+# Get local AGE private key path
+get_local_age_key() {
+    echo "$AGE_KEY_FILE"
+}
+
+# Check if file is encrypted
+is_file_encrypted() {
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        return 1
+    fi
+    
+    # Check metadata flag
+    if grep -q "^# ENCRYPTED: true" "$file"; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Get list of recipients from encrypted file
+get_recipients_from_file() {
+    local file="$1"
+    if ! is_file_encrypted "$file"; then
+        echo ""
+        return
+    fi
+    
+    local recipients=$(extract_metadata "$file" "RECIPIENTS")
+    echo "$recipients"
+}
+
+# Check if local machine can decrypt file
+can_decrypt_file() {
+    local file="$1"
+    
+    if ! is_file_encrypted "$file"; then
+        return 0  # Not encrypted = can "decrypt" (nothing to do)
+    fi
+    
+    if [[ ! -f "$AGE_KEY_FILE" ]]; then
+        return 1  # No private key
+    fi
+    
+    local local_pubkey=$(get_local_age_pubkey)
+    local recipients=$(get_recipients_from_file "$file")
+    
+    # Check if local pubkey is in recipients
+    if [[ "$recipients" == *"$local_pubkey"* ]]; then
+        return 0
+    fi
+    
+    return 1
+}
+
+# Decrypt secrets file to plaintext
+decrypt_secrets_file() {
+    local input_file="$1"
+    local output_file="${2:-}"
+    
+    if ! is_file_encrypted "$input_file"; then
+        # Not encrypted, just copy
+        if [[ -n "$output_file" ]]; then
+            cp "$input_file" "$output_file"
+        fi
+        return 0
+    fi
+    
+    if ! can_decrypt_file "$input_file"; then
+        log "ERROR" "Cannot decrypt file - not in recipient list"
+        return 1
+    fi
+    
+    # Extract encrypted block
+    local encrypted_block=$(sed -n '/-----BEGIN AGE ENCRYPTED FILE-----/,/-----END AGE ENCRYPTED FILE-----/p' "$input_file" | grep -v '^-----')
+    
+    if [[ -z "$encrypted_block" ]]; then
+        log "ERROR" "No encrypted data found in file"
+        return 1
+    fi
+    
+    # Decode base64 and decrypt
+    if [[ -n "$output_file" ]]; then
+        echo "$encrypted_block" | base64 -d | age -d -i "$AGE_KEY_FILE" -o "$output_file" 2>/dev/null
+    else
+        echo "$encrypted_block" | base64 -d | age -d -i "$AGE_KEY_FILE" 2>/dev/null
+    fi
+    
+    return $?
+}
+
+# Encrypt secrets content to multiple recipients
+encrypt_secrets_content() {
+    local content="$1"
+    shift
+    local recipients=("$@")  # Array of recipient pubkeys
+    
+    if [[ ${#recipients[@]} -eq 0 ]]; then
+        log "ERROR" "No recipients specified for encryption"
+        return 1
+    fi
+    
+    # Build age recipient arguments
+    local age_args=()
+    for recipient in "${recipients[@]}"; do
+        age_args+=("-r" "$recipient")
+    done
+    
+    # Encrypt content
+    local encrypted
+    encrypted=$(echo "$content" | age "${age_args[@]}" 2>/dev/null | base64)
+    
+    if [[ -z "$encrypted" ]]; then
+        log "ERROR" "Encryption failed"
+        return 1
+    fi
+    
+    echo "$encrypted"
+}
+
+# Save encrypted secrets file
+save_encrypted_secrets() {
+    local output_file="$1"
+    local encrypted_content="$2"
+    local recipients="$3"  # Comma-separated list
+    
+    local hostname=$(get_hostname)
+    local timestamp=$(get_timestamp)
+    local version=$(get_file_version "$output_file" 2>/dev/null || echo "1.0.0")
+    
+    cat > "$output_file" << EOF
+# === ENV_SYNC_METADATA ===
+# VERSION: $version
+# TIMESTAMP: $timestamp
+# HOST: $hostname
+# MODIFIED: $timestamp
+# ENCRYPTED: true
+# RECIPIENTS: $recipients
+# CHECKSUM: 
+# === END_METADATA ===
+
+-----BEGIN AGE ENCRYPTED FILE-----
+$encrypted_content
+-----END AGE ENCRYPTED FILE-----
+
+# === ENV_SYNC_FOOTER ===
+# VERSION: $version
+# TIMESTAMP: $timestamp
+# HOST: $hostname
+# === END_FOOTER ===
+EOF
+    
+    chmod 600 "$output_file"
+    
+    # Update checksum
+    local checksum=$(generate_checksum "$output_file")
+    sed -i.bak "s/^# CHECKSUM: .*/# CHECKSUM: $checksum/" "$output_file"
+    rm -f "$output_file.bak"
+}
+
+# Get all known recipient pubkeys from cache
+get_all_known_recipients() {
+    local recipients=()
+    
+    # Add local pubkey
+    local local_pubkey=$(get_local_age_pubkey)
+    if [[ -n "$local_pubkey" ]]; then
+        recipients+=("$local_pubkey")
+    fi
+    
+    # Add cached pubkeys from known_hosts
+    if [[ -d "$AGE_KNOWN_HOSTS_DIR" ]]; then
+        for pubkey_file in "$AGE_KNOWN_HOSTS_DIR"/*.pub; do
+            if [[ -f "$pubkey_file" ]]; then
+                local pubkey=$(cat "$pubkey_file")
+                if [[ -n "$pubkey" && ! " ${recipients[@]} " =~ " ${pubkey} " ]]; then
+                    recipients+=("$pubkey")
+                fi
+            fi
+        done
+    fi
+    
+    printf '%s\n' "${recipients[@]}"
+}
+
+# Cache a peer's public key
+cache_peer_pubkey() {
+    local hostname="$1"
+    local pubkey="$2"
+    
+    init_age_dirs
+    
+    # Save to known_hosts
+    echo "$pubkey" > "$AGE_KNOWN_HOSTS_DIR/$hostname.pub"
+    chmod 644 "$AGE_KNOWN_HOSTS_DIR/$hostname.pub"
+    
+    # Update cache metadata
+    local cache_file="$AGE_CACHE_DIR/pubkey_cache.json"
+    local timestamp=$(get_timestamp)
+    
+    # Create cache if doesn't exist
+    if [[ ! -f "$cache_file" ]]; then
+        echo '{}' > "$cache_file"
+    fi
+    
+    # Update cache using jq if available, otherwise use sed
+    if command -v jq >/dev/null 2>&1; then
+        local temp_cache=$(mktemp)
+        jq --arg host "$hostname" \
+           --arg key "$pubkey" \
+           --arg ts "$timestamp" \
+           --arg first "$(jq -r ".[$hostname].first_seen // \"$timestamp\"" "$cache_file" 2>/dev/null || echo "$timestamp")" \
+           '.[$host] = {"pubkey": $key, "last_seen": $ts, "first_seen": $first}' \
+           "$cache_file" > "$temp_cache"
+        mv "$temp_cache" "$cache_file"
+    else
+        # Simple sed-based update (jq not available)
+        log "DEBUG" "jq not available, skipping cache update"
+    fi
+    
+    chmod 600 "$cache_file"
+}
+
+# Get cached pubkey for a hostname
+get_cached_pubkey() {
+    local hostname="$1"
+    local pubkey_file="$AGE_KNOWN_HOSTS_DIR/$hostname.pub"
+    
+    if [[ -f "$pubkey_file" ]]; then
+        cat "$pubkey_file"
+    else
+        echo ""
+    fi
+}
+
+# List all cached peers
+list_cached_peers() {
+    if [[ ! -d "$AGE_KNOWN_HOSTS_DIR" ]]; then
+        return
+    fi
+    
+    for pubkey_file in "$AGE_KNOWN_HOSTS_DIR"/*.pub; do
+        if [[ -f "$pubkey_file" ]]; then
+            local hostname=$(basename "$pubkey_file" .pub)
+            local pubkey=$(head -1 "$pubkey_file")
+            echo "$hostname: $pubkey"
+        fi
+    done
+}
+
+# Remove peer from recipients
+remove_peer_pubkey() {
+    local hostname="$1"
+    local pubkey_file="$AGE_KNOWN_HOSTS_DIR/$hostname.pub"
+    
+    if [[ -f "$pubkey_file" ]]; then
+        rm -f "$pubkey_file"
+        log "INFO" "Removed pubkey for $hostname"
+    fi
+}

@@ -67,6 +67,19 @@ Commands:
 
   restore [n]              Restore from backup (n=1-5, default: 1)
 
+  key [subcommand]         Manage AGE encryption keys
+    Subcommands:
+      show                 Show this machine's public key
+      export               Export public key
+      import <pubkey>      Import a peer's public key
+      list                 List all cached public keys
+      request-access       Request access for new machine
+      grant-access         Grant access to requesting machine
+
+  load [options]           Load secrets for shell integration
+    Options:
+      --format <env|json>  Output format (default: env)
+
   cron [options]           Setup cron job for periodic sync
     Options:
       --install            Install cron job (30min interval)
@@ -86,11 +99,20 @@ Setup Instructions:
   1. Ensure SSH keys are set up between machines:
      ssh-copy-id other-machine.local
   
-  2. Initialize and start sync:
-     env-sync init
-     env-sync                         # Uses SCP by default
+  2. Initialize with encryption:
+     env-sync init --encrypted
+     env-sync                         # Uses SCP with encryption
   
-  3. To use insecure HTTP mode (not recommended):
+  3. Adding a new machine to existing fleet:
+     # On new machine (D):
+     env-sync init --encrypted
+     env-sync key request-access --trigger beelink.local
+     env-sync                         # Now can decrypt and sync
+  
+  4. Shell integration (add to .bashrc):
+     eval "$(env-sync load 2>/dev/null)"
+  
+  5. To use insecure HTTP mode (not recommended):
      env-sync serve -d                # Start HTTP server
      env-sync --insecure-http         # Sync via HTTP
 
@@ -297,6 +319,77 @@ cmd_status() {
 
 # Init command
 cmd_init() {
+    local encrypted=false
+    local encrypt_existing=false
+    
+    # Parse init-specific arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --encrypted)
+                encrypted=true
+                shift
+                ;;
+            --encrypt-existing)
+                encrypt_existing=true
+                shift
+                ;;
+            --help)
+                echo "Usage: env-sync init [options]"
+                echo "Options:"
+                echo "  --encrypted         Initialize with encryption enabled (generates AGE key)"
+                echo "  --encrypt-existing  Encrypt an existing plaintext secrets file"
+                echo "  --help              Show this help"
+                exit 0
+                ;;
+            *)
+                log "ERROR" "Unknown option: $1"
+                exit 1
+                ;;
+        esac
+    done
+    
+    # Check if AGE is installed when encryption requested
+    if $encrypted || $encrypt_existing; then
+        if ! check_age_installed; then
+            log "ERROR" "AGE is required for encryption. Install it first."
+            exit 1
+        fi
+    fi
+    
+    # Handle encrypt-existing
+    if $encrypt_existing; then
+        if [[ ! -f "$SECRETS_FILE" ]]; then
+            log "ERROR" "No existing secrets file to encrypt: $SECRETS_FILE"
+            exit 1
+        fi
+        
+        if is_file_encrypted "$SECRETS_FILE"; then
+            log "INFO" "Secrets file is already encrypted"
+            exit 0
+        fi
+        
+        # Generate key if needed
+        if [[ ! -f "$AGE_KEY_FILE" ]]; then
+            generate_age_key
+        fi
+        
+        # Get existing content
+        local content=$(get_secrets_content "$SECRETS_FILE")
+        local local_pubkey=$(get_local_age_pubkey)
+        
+        # Encrypt to self only initially
+        local encrypted_content=$(encrypt_secrets_content "$content" "$local_pubkey")
+        
+        # Save encrypted file
+        create_backup "$SECRETS_FILE"
+        save_encrypted_secrets "$SECRETS_FILE" "$encrypted_content" "$local_pubkey"
+        
+        log "SUCCESS" "Encrypted existing secrets file"
+        log "INFO" "Run 'env-sync' to sync with peers and add them as recipients"
+        return 0
+    fi
+    
+    # Handle regular init (with or without encryption)
     if [[ -f "$SECRETS_FILE" ]]; then
         log "WARN" "Secrets file already exists: $SECRETS_FILE"
         read -p "Overwrite? [y/N] " -n 1 -r
@@ -308,9 +401,29 @@ cmd_init() {
         create_backup "$SECRETS_FILE"
     fi
     
+    # Generate AGE key if encryption requested
+    if $encrypted; then
+        generate_age_key
+    fi
+    
+    # Create plaintext file first
     init_secrets_file "$SECRETS_FILE"
-    log "SUCCESS" "Initialized secrets file at $SECRETS_FILE"
-    log "INFO" "Edit the file to add your secrets, then run 'env-sync serve -d'"
+    
+    # If encrypted, convert to encrypted format
+    if $encrypted; then
+        local content=$(get_secrets_content "$SECRETS_FILE")
+        local local_pubkey=$(get_local_age_pubkey)
+        local encrypted_content=$(encrypt_secrets_content "$content" "$local_pubkey")
+        
+        save_encrypted_secrets "$SECRETS_FILE" "$encrypted_content" "$local_pubkey"
+        
+        log "SUCCESS" "Initialized encrypted secrets file at $SECRETS_FILE"
+        log "INFO" "Your AGE public key: $local_pubkey"
+        log "INFO" "Edit the file to add your secrets, then run 'env-sync' to sync with peers"
+    else
+        log "SUCCESS" "Initialized secrets file at $SECRETS_FILE"
+        log "INFO" "Edit the file to add your secrets, then run 'env-sync'"
+    fi
 }
 
 # Restore command
@@ -395,6 +508,12 @@ case "$COMMAND" in
         ;;
     cron|c)
         cmd_cron "$@"
+        ;;
+    key|k)
+        "$SCRIPT_DIR/env-sync-key" "$@"
+        ;;
+    load|l)
+        "$SCRIPT_DIR/env-sync-load" "$@"
         ;;
     help|--help|-h)
         show_help

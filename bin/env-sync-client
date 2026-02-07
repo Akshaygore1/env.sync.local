@@ -173,6 +173,60 @@ fetch_from_host() {
     fi
 }
 
+# Function to decrypt file for comparison
+decrypt_for_comparison() {
+    local file="$1"
+    local output_file="$2"
+    
+    if is_file_encrypted "$file"; then
+        if can_decrypt_file "$file"; then
+            decrypt_secrets_file "$file" "$output_file"
+            return 0
+        else
+            log "WARN" "Cannot decrypt file - not in recipient list"
+            return 1
+        fi
+    else
+        # Not encrypted, just copy
+        cp "$file" "$output_file"
+        return 0
+    fi
+}
+
+# Function to re-encrypt secrets after merge
+reencrypt_secrets() {
+    local plaintext_file="$1"
+    local output_file="$2"
+    
+    # Get all recipients
+    local recipients=($(get_all_known_recipients))
+    
+    if [[ ${#recipients[@]} -eq 0 ]]; then
+        log "WARN" "No recipients found - keeping as plaintext"
+        cp "$plaintext_file" "$output_file"
+        return 0
+    fi
+    
+    # Read content
+    local content=$(cat "$plaintext_file")
+    
+    # Encrypt to all recipients
+    local encrypted_content=$(encrypt_secrets_content "$content" "${recipients[@]}")
+    
+    if [[ -z "$encrypted_content" ]]; then
+        log "ERROR" "Failed to encrypt secrets"
+        return 1
+    fi
+    
+    # Build recipients string
+    local recipients_str=$(IFS=,; echo "${recipients[*]}")
+    
+    # Save encrypted file
+    save_encrypted_secrets "$output_file" "$encrypted_content" "$recipients_str"
+    
+    return 0
+}
+
 # Function to sync from a specific host
 sync_from_host() {
     local host="$1"
@@ -183,17 +237,55 @@ sync_from_host() {
         return 1
     fi
     
+    # Check if remote file is encrypted and if we can decrypt it
+    if is_file_encrypted "$remote_file"; then
+        if ! can_decrypt_file "$remote_file"; then
+            log "ERROR" "Cannot sync from $host - file is encrypted and we're not a recipient"
+            log "INFO" "Run 'env-sync key request-access --trigger $host' to request access"
+            rm -f "$remote_file"
+            return 1
+        fi
+    fi
+    
     # Check if local file exists
     if [[ ! -f "$SECRETS_FILE" ]]; then
         log "INFO" "No local secrets file found, copying from $host"
-        cp "$remote_file" "$SECRETS_FILE"
-        chmod 600 "$SECRETS_FILE"
+        
+        # If remote is encrypted, we should re-encrypt to all known recipients
+        if is_file_encrypted "$remote_file"; then
+            local temp_decrypted=$(mktemp)
+            decrypt_secrets_file "$remote_file" "$temp_decrypted"
+            reencrypt_secrets "$temp_decrypted" "$SECRETS_FILE"
+            rm -f "$temp_decrypted"
+        else
+            cp "$remote_file" "$SECRETS_FILE"
+            chmod 600 "$SECRETS_FILE"
+        fi
+        
         rm -f "$remote_file"
         log "SUCCESS" "Synced secrets from $host (new file)"
         return 0
     fi
     
-    # Compare versions
+    # Decrypt both files for comparison
+    local local_decrypted=$(mktemp)
+    local remote_decrypted=$(mktemp)
+    
+    trap "rm -f $local_decrypted $remote_decrypted" EXIT
+    
+    decrypt_for_comparison "$SECRETS_FILE" "$local_decrypted" || {
+        log "ERROR" "Cannot decrypt local secrets file"
+        rm -f "$remote_file"
+        return 1
+    }
+    
+    decrypt_for_comparison "$remote_file" "$remote_decrypted" || {
+        log "ERROR" "Cannot decrypt remote secrets file from $host"
+        rm -f "$remote_file"
+        return 1
+    }
+    
+    # Compare versions (using decrypted files for metadata comparison)
     if ! $FORCE && ! is_newer "$remote_file" "$SECRETS_FILE"; then
         local local_version=$(get_file_version "$SECRETS_FILE")
         local remote_version=$(get_file_version "$remote_file")
@@ -205,9 +297,9 @@ sync_from_host() {
     # Create backup
     create_backup "$SECRETS_FILE"
     
-    # Copy remote file
-    cp "$remote_file" "$SECRETS_FILE"
-    chmod 600 "$SECRETS_FILE"
+    # Use the remote decrypted content and re-encrypt to all recipients
+    reencrypt_secrets "$remote_decrypted" "$SECRETS_FILE"
+    
     rm -f "$remote_file"
     
     local remote_version=$(get_file_version "$SECRETS_FILE")

@@ -61,6 +61,15 @@ if ! command -v nc >/dev/null 2>&1 && ! command -v netcat >/dev/null 2>&1; then
     MISSING_DEPS+=("netcat (nc)")
 fi
 
+# Check for age (required for encryption support)
+if ! command -v age >/dev/null 2>&1; then
+    MISSING_DEPS+=("age")
+fi
+
+if ! command -v age-keygen >/dev/null 2>&1; then
+    MISSING_DEPS+=("age-keygen")
+fi
+
 case "$OS" in
     Linux)
         if ! command -v avahi-browse >/dev/null 2>&1; then
@@ -79,11 +88,17 @@ if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
     echo "Please install them:"
     case "$OS" in
         Linux)
-            echo "  Ubuntu/Debian: sudo apt-get install avahi-daemon avahi-utils curl netcat-openbsd"
-            echo "  Fedora/RHEL:   sudo dnf install avahi avahi-tools curl nmap-ncat"
+            echo "  Ubuntu/Debian: sudo apt-get install avahi-daemon avahi-utils curl netcat-openbsd age"
+            echo "  Fedora/RHEL:   sudo dnf install avahi avahi-tools curl nmap-ncat age"
+            echo ""
+            echo "  To install age manually:"
+            echo "    curl -fsSL https://github.com/FiloSottile/age/releases/latest/download/age-v1.2.0-linux-amd64.tar.gz | tar -xz -C /usr/local/bin --strip-components=1"
             ;;
         Darwin)
-            echo "  macOS: No additional dependencies required"
+            echo "  macOS: brew install age"
+            echo ""
+            echo "  To install age manually:"
+            echo "    curl -fsSL https://github.com/FiloSottile/age/releases/latest/download/age-v1.2.0-darwin-amd64.tar.gz | tar -xz -C /usr/local/bin --strip-components=1"
             ;;
     esac
     echo ""

@@ -15,6 +15,8 @@ source "$SCRIPT_DIR/../lib/common.sh"
 TIMEOUT=5
 VERBOSE=false
 FILTER_SSH=false
+COLLECT_KEYS=false
+SHOW_PUBKEYS=false
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -35,6 +37,14 @@ while [[ $# -gt 0 ]]; do
             FILTER_SSH=true
             shift
             ;;
+        --collect-keys)
+            COLLECT_KEYS=true
+            shift
+            ;;
+        --pubkeys)
+            SHOW_PUBKEYS=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: env-sync-discover [options]"
             echo "Options:"
@@ -42,6 +52,8 @@ while [[ $# -gt 0 ]]; do
             echo "  -q, --quiet            Only output hostnames"
             echo "  -v, --verbose          Verbose output"
             echo "  --ssh                  Filter for hosts with SSH access"
+            echo "  --collect-keys         Collect and cache peer public keys"
+            echo "  --pubkeys              Show discovered public keys"
             exit 0
             ;;
         *)
@@ -240,20 +252,57 @@ main() {
         else
             log "SUCCESS" "Found $count peer(s):"
             echo "$peers" | while read -r peer; do
+                local peer_info=""
+                local peer_pubkey=""
+                
                 if $VERBOSE; then
                     # Get more info about peer
                     local health
                     health=$(curl -fsSL --connect-timeout 3 "http://${peer}:${ENV_SYNC_PORT}/health" 2>/dev/null || echo "")
                     if [[ -n "$health" ]]; then
                         local version=$(echo "$health" | grep -o '"version": "[^"]*"' | cut -d'"' -f4)
-                        echo "  - $peer (version: $version)"
-                    else
-                        echo "  - $peer"
+                        peer_info=" (version: $version)"
                     fi
-                else
-                    echo "  - $peer"
                 fi
+                
+                if $COLLECT_KEYS || $SHOW_PUBKEYS; then
+                    # Try to fetch pubkey via SSH
+                    peer_pubkey=$(ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$peer" "cat ~/.config/env-sync/keys/age_key.pub" 2>/dev/null || echo "")
+                    if [[ -n "$peer_pubkey" ]]; then
+                        # Cache the pubkey
+                        cache_peer_pubkey "$peer" "$peer_pubkey"
+                        if $SHOW_PUBKEYS; then
+                            peer_info="$peer_info [pubkey: ${peer_pubkey:0:20}...]"
+                        fi
+                    fi
+                fi
+                
+                echo "  - $peer$peer_info"
             done
+        fi
+    fi
+    
+    # Collect keys from all discovered peers if requested
+    if $COLLECT_KEYS; then
+        log "INFO" "Collecting public keys from peers..."
+        local collected=0
+        while IFS= read -r peer; do
+            [[ -z "$peer" ]] && continue
+            
+            # Try to fetch pubkey via SSH
+            local pubkey=$(ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=accept-new "$peer" "cat ~/.config/env-sync/keys/age_key.pub" 2>/dev/null || echo "")
+            if [[ -n "$pubkey" ]]; then
+                cache_peer_pubkey "$peer" "$pubkey"
+                log "SUCCESS" "Cached public key from $peer"
+                ((collected++))
+            else
+                log "WARN" "Could not fetch public key from $peer"
+            fi
+        done <<< "$peers"
+        
+        if [[ $collected -gt 0 ]]; then
+            log "SUCCESS" "Collected $collected public key(s)"
+            log "INFO" "Run 'env-sync' to sync with new recipients"
         fi
     fi
 }
