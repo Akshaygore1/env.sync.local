@@ -122,6 +122,10 @@ cp "$SCRIPT_DIR/bin/env-sync" "$BIN_DIR/"
 cp "$SCRIPT_DIR/bin/env-sync-discover" "$BIN_DIR/"
 cp "$SCRIPT_DIR/bin/env-sync-client" "$BIN_DIR/"
 cp "$SCRIPT_DIR/bin/env-sync-serve" "$BIN_DIR/"
+if [[ -x "$SCRIPT_DIR/target/env-sync" ]]; then
+    cp "$SCRIPT_DIR/target/env-sync" "$BIN_DIR/env-sync-go"
+    chmod +x "$BIN_DIR/env-sync-go"
+fi
 
 # Install library
 cp "$SCRIPT_DIR/lib/common.sh" "$LIB_DIR/"

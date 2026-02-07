@@ -21,6 +21,7 @@ From the project root:
 ```
 
 This will:
+1. Build the Go binary (`make build`)
 1. Check prerequisites (Docker, docker-compose, git)
 2. Install bats-core testing framework
 3. Generate SSH keys for containers

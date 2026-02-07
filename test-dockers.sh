@@ -153,6 +153,9 @@ check_prerequisites() {
 setup_environment() {
     print_info "Setting up test environment..."
 
+    print_info "Building Go binary..."
+    make -C "$SCRIPT_DIR" build
+
     # Generate SSH keys
     print_info "Generating SSH keys..."
     "$TESTS_DIR/utils/generate-ssh-keys.sh"

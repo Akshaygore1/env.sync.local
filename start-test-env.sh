@@ -85,6 +85,10 @@ echo "Starting env-sync Test Environment"
 echo "=============================================="
 echo ""
 
+# Build Go binary
+print_info "Building Go binary..."
+make -C "$SCRIPT_DIR" build
+
 # Generate SSH keys
 print_info "Generating SSH keys..."
 "$TESTS_DIR/utils/generate-ssh-keys.sh"

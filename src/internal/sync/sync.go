@@ -1,0 +1,376 @@
+package syncer
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
+	"envsync/internal/backup"
+	"envsync/internal/config"
+	"envsync/internal/discovery"
+	"envsync/internal/keys"
+	"envsync/internal/logging"
+	"envsync/internal/metadata"
+	"envsync/internal/secrets"
+	httptransport "envsync/internal/transport/http"
+	sshtransport "envsync/internal/transport/ssh"
+)
+
+type Options struct {
+	AllPeers     bool
+	Force        bool
+	Quiet        bool
+	InsecureHTTP bool
+	TargetHost   string
+}
+
+func Run(opts Options) error {
+	if opts.Quiet {
+		_ = os.Setenv("ENV_SYNC_QUIET", "true")
+	}
+
+	if opts.InsecureHTTP {
+		printHTTPWarning()
+	}
+
+	maybeReencryptLocal()
+
+	if opts.TargetHost != "" {
+		if !opts.InsecureHTTP {
+			if err := sshtransport.TestSSH(opts.TargetHost); err != nil {
+				logging.Log("ERROR", "Cannot SSH to "+opts.TargetHost)
+				logging.Log("INFO", "Ensure SSH keys are set up, or use --insecure-http flag")
+				return err
+			}
+		}
+		return syncFromHost(opts.TargetHost, opts.InsecureHTTP)
+	}
+
+	if opts.AllPeers {
+		logging.Log("INFO", "Syncing from all discovered peers...")
+		peers, err := discoverPeers(opts.InsecureHTTP)
+		if err != nil || len(peers) == 0 {
+			logging.Log("WARN", "No peers discovered")
+			return errors.New("no peers")
+		}
+		success := 0
+		for _, peer := range peers {
+			if peer == secrets.GetHostname() {
+				continue
+			}
+			if !opts.InsecureHTTP {
+				if err := sshtransport.TestSSH(peer); err != nil {
+					continue
+				}
+			}
+			if err := syncFromHost(peer, opts.InsecureHTTP); err == nil {
+				success++
+			}
+		}
+		if success == 0 {
+			logging.Log("WARN", "Failed to sync from any peer")
+			if !opts.InsecureHTTP {
+				logging.Log("INFO", "Tip: Set up SSH keys with: ssh-copy-id hostname.local")
+			}
+			return errors.New("sync failed")
+		}
+		logging.Log("SUCCESS", fmt.Sprintf("Synced from %d peer(s)", success))
+		return nil
+	}
+
+	logging.Log("INFO", fmt.Sprintf("Searching for newest secrets via %s...", transportName(opts.InsecureHTTP)))
+	newestHost, err := findNewestPeer(opts.InsecureHTTP)
+	if err != nil || newestHost == "" {
+		logging.Log("INFO", "No newer secrets found on network")
+		if !opts.InsecureHTTP {
+			logging.Log("INFO", "To sync without SSH keys, use: env-sync --insecure-http")
+		}
+		return nil
+	}
+	logging.Log("INFO", "Newest secrets found on: "+newestHost)
+	return syncFromHost(newestHost, opts.InsecureHTTP)
+}
+
+func transportName(useHTTP bool) string {
+	if useHTTP {
+		return "HTTP"
+	}
+	return "SCP/SSH"
+}
+
+func printHTTPWarning() {
+	if strings.EqualFold(os.Getenv("ENV_SYNC_QUIET"), "true") {
+		return
+	}
+	lines := []string{
+		"",
+		"╔════════════════════════════════════════════════════════════════════════════╗",
+		"║  ⚠️  SECURITY WARNING: USING INSECURE HTTP MODE                          ║",
+		"║                                                                            ║",
+		"║  You are using the insecure HTTP sync mode. This exposes your secrets:     ║",
+		"║  • Transmitted in PLAINTEXT over the network                               ║",
+		"║  • Accessible to ANY device on your local network                          ║",
+		"║  • No authentication or encryption                                         ║",
+		"║                                                                            ║",
+		"║  RECOMMENDED: Use SCP mode (default) which requires SSH key authentication ║",
+		"║  To use SCP: Remove the --insecure-http flag                               ║",
+		"║                                                                            ║",
+		"║  Only use HTTP mode if:                                                    ║",
+		"║  • SSH keys are not set up between machines                                ║",
+		"║  • You are on a completely trusted isolated network                        ║",
+		"║  • You are testing/development only                                        ║",
+		"╚════════════════════════════════════════════════════════════════════════════╝",
+		"",
+	}
+	fmt.Fprintln(os.Stdout, strings.Join(lines, "\n"))
+}
+
+func discoverPeers(useHTTP bool) ([]string, error) {
+	opts := discovery.Options{Timeout: 5 * time.Second, Quiet: true}
+	if !useHTTP {
+		opts.FilterSSH = true
+	}
+	return discovery.Discover(opts)
+}
+
+func fetchFromHost(host string, useHTTP bool) (string, error) {
+	tmpFile, err := os.CreateTemp("", "env-sync-remote")
+	if err != nil {
+		return "", err
+	}
+	tmpPath := tmpFile.Name()
+	_ = tmpFile.Close()
+
+	if useHTTP {
+		logging.Log("INFO", fmt.Sprintf("Fetching from %s via HTTP (INSECURE)...", host))
+		data, err := httptransport.FetchSecrets(host)
+		if err != nil {
+			logging.Log("WARN", "Failed to fetch from "+host+" via HTTP")
+			_ = os.Remove(tmpPath)
+			return "", err
+		}
+		if err := os.WriteFile(tmpPath, data, 0o600); err != nil {
+			_ = os.Remove(tmpPath)
+			return "", err
+		}
+	} else {
+		logging.Log("INFO", fmt.Sprintf("Fetching from %s via SCP...", host))
+		if err := sshtransport.FetchViaSCP(host, config.SecretsFile(), tmpPath); err != nil {
+			logging.Log("WARN", "Failed to fetch from "+host+" via SCP (SSH key may not be set up)")
+			_ = os.Remove(tmpPath)
+			return "", err
+		}
+	}
+
+	if err := secrets.ValidateSecretsFile(tmpPath); err != nil {
+		logging.Log("WARN", "Invalid secrets file from "+host)
+		_ = os.Remove(tmpPath)
+		return "", err
+	}
+
+	return tmpPath, nil
+}
+
+func syncFromHost(host string, useHTTP bool) error {
+	remoteFile, err := fetchFromHost(host, useHTTP)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(remoteFile)
+
+	if _, err := os.Stat(config.SecretsFile()); err != nil {
+		logging.Log("INFO", "No local secrets file found, copying from "+host)
+		if err := copyFile(remoteFile, config.SecretsFile()); err != nil {
+			return err
+		}
+		_ = os.Chmod(config.SecretsFile(), 0o600)
+		logging.Log("SUCCESS", "Synced secrets from "+host)
+		return nil
+	}
+
+	_ = backup.CreateBackup(config.SecretsFile())
+
+	localContent, _ := secrets.GetSecretsContent(config.SecretsFile())
+	remoteContent, _ := secrets.GetSecretsContent(remoteFile)
+	merged := secrets.MergeSecretsContent(localContent, remoteContent)
+
+	if err := secrets.SetSecretsContent(config.SecretsFile(), merged); err != nil {
+		return err
+	}
+
+	logging.Log("SUCCESS", "Synced and merged secrets from "+host)
+	return nil
+}
+
+func findNewestPeer(useHTTP bool) (string, error) {
+	newestHost := ""
+	newestFile := ""
+	newestIsLocal := false
+
+	if _, err := os.Stat(config.SecretsFile()); err == nil {
+		newestFile = config.SecretsFile()
+		newestIsLocal = true
+	}
+
+	peers, err := discoverPeers(useHTTP)
+	if err != nil {
+		logging.Log("WARN", "No peers discovered")
+		return "", err
+	}
+
+	for _, peer := range peers {
+		if peer == secrets.GetHostname() {
+			continue
+		}
+		if !useHTTP {
+			if err := sshtransport.TestSSH(peer); err != nil {
+				logging.Log("DEBUG", "Cannot SSH to "+peer+" (skipping)")
+				continue
+			}
+		}
+		remoteFile, err := fetchFromHost(peer, useHTTP)
+		if err != nil {
+			continue
+		}
+		if keys.IsFileEncrypted(remoteFile) && !keys.CanDecryptFile(remoteFile) {
+			logging.Log("DEBUG", "Cannot decrypt file from "+peer+" (skipping)")
+			_ = os.Remove(remoteFile)
+			continue
+		}
+		if newestFile == "" || secrets.IsNewer(remoteFile, newestFile) {
+			newestHost = peer
+			if newestFile != "" && !newestIsLocal {
+				_ = os.Remove(newestFile)
+			}
+			newestFile = remoteFile
+			newestIsLocal = false
+		} else {
+			_ = os.Remove(remoteFile)
+		}
+	}
+
+	if newestHost == "" {
+		if newestFile != "" && !newestIsLocal {
+			_ = os.Remove(newestFile)
+		}
+		if !useHTTP {
+			logging.Log("WARN", "No valid peers found via SSH")
+			logging.Log("INFO", "Tip: Ensure SSH keys are set up between machines")
+			logging.Log("INFO", "     Or use --insecure-http flag (not recommended)")
+		}
+		return "", errors.New("no peers")
+	}
+
+	if newestFile != "" && !newestIsLocal {
+		_ = os.Remove(newestFile)
+	}
+	return newestHost, nil
+}
+
+func maybeReencryptLocal() {
+	if _, err := os.Stat(config.SecretsFile()); err != nil {
+		return
+	}
+	if !keys.IsFileEncrypted(config.SecretsFile()) {
+		return
+	}
+	if !keys.CanDecryptFile(config.SecretsFile()) {
+		return
+	}
+
+	recipientsInFile := keys.GetRecipientsFromFile(config.SecretsFile())
+	allRecipients := keys.GetAllKnownRecipients()
+	if len(allRecipients) == 0 {
+		return
+	}
+
+	missing := false
+	for _, recipient := range allRecipients {
+		if !strings.Contains(recipientsInFile, recipient) {
+			missing = true
+			break
+		}
+	}
+	if !missing {
+		return
+	}
+
+	tempFile, err := os.CreateTemp("", "env-sync-reencrypt")
+	if err != nil {
+		return
+	}
+	tempPath := tempFile.Name()
+	_ = tempFile.Close()
+
+	if err := reencryptSecrets(config.SecretsFile(), tempPath); err != nil {
+		_ = os.Remove(tempPath)
+		logging.Log("ERROR", "Failed to re-encrypt secrets")
+		return
+	}
+	_ = os.Rename(tempPath, config.SecretsFile())
+	_ = os.Chmod(config.SecretsFile(), 0o600)
+	logging.Log("SUCCESS", "Re-encrypted local secrets with updated recipients")
+}
+
+func reencryptSecrets(inputFile, outputFile string) error {
+	recipients := keys.GetAllKnownRecipients()
+	if len(recipients) == 0 {
+		logging.Log("WARN", "No recipients found - keeping as plaintext")
+		return copyFile(inputFile, outputFile)
+	}
+
+	content, err := secrets.GetSecretsContent(inputFile)
+	if err != nil {
+		return err
+	}
+
+	var newLines []string
+	for _, line := range strings.Split(content, "\n") {
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
+			newLines = append(newLines, line)
+			continue
+		}
+		matches := regexp.MustCompile(`^([A-Z_][A-Z0-9_]*)="(.*)"\s*#.*ENVSYNC_UPDATED_AT=(.*)`).FindStringSubmatch(line)
+		if len(matches) == 0 {
+			newLines = append(newLines, line)
+			continue
+		}
+		decrypted, err := keys.DecryptValue(matches[2])
+		if err != nil {
+			logging.Log("WARN", "Failed to decrypt "+matches[1]+" during re-encryption (skipping re-encryption for this key)")
+			newLines = append(newLines, line)
+			continue
+		}
+		encrypted, err := keys.EncryptValue(decrypted, recipients)
+		if err != nil {
+			logging.Log("ERROR", "Failed to re-encrypt "+matches[1])
+			return err
+		}
+		newLines = append(newLines, fmt.Sprintf("%s=\"%s\" # ENVSYNC_UPDATED_AT=%s", matches[1], encrypted, matches[3]))
+	}
+
+	if err := secrets.SetSecretsContent(outputFile, strings.TrimSpace(strings.Join(newLines, "\n"))); err != nil {
+		return err
+	}
+
+	recipientsStr := strings.Join(recipients, ",")
+	if err := metadata.EnsureEncryptedMetadata(outputFile, secrets.GetHostname(), recipientsStr); err != nil {
+		return err
+	}
+	return secrets.UpdateMetadata(outputFile, "")
+}
+
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0o600)
+}

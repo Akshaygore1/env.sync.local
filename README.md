@@ -454,11 +454,26 @@ env-sync/
 │   ├── env-sync-serve        # HTTP server
 │   ├── env-sync-key          # Key management CLI
 │   └── env-sync-load         # Shell integration
+├── src/
+│   └── cmd/env-sync           # Go implementation entrypoint
+├── target/
+│   └── env-sync               # Go build output
 ├── lib/
 │   └── common.sh             # Shared functions + AGE encryption
 ├── install.sh                # Installation script
 ├── README.md                 # This file
 └── AGENTS.md                 # Developer documentation
+```
+
+### Go Build
+```bash
+make build    # Build ./target/env-sync
+make test     # Run Go tests
+```
+
+To force the legacy Bash implementation when the Go binary is present:
+```bash
+ENV_SYNC_USE_BASH=true env-sync status
 ```
 
 ## License

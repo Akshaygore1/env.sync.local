@@ -40,6 +40,7 @@ RUN sed -i 's/hosts:.*files dns/hosts: files mdns_minimal [NOTFOUND=return] dns 
 # Copy env-sync binaries (built from source)
 COPY bin/ /usr/local/bin/
 COPY lib/ /usr/local/lib/
+COPY target/env-sync /usr/local/bin/env-sync-go
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/env-sync*

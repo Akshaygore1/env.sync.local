@@ -2,6 +2,7 @@
 *.backup.*
 *.bak
 *.log
+target/
 ~/.secrets.env
 ~/.config/env-sync/
 
