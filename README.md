@@ -282,9 +282,8 @@ fi
 # RECIPIENTS: age1xyz...,age1abc...,age1def...
 # === END_METADATA ===
 
------BEGIN AGE ENCRYPTED FILE-----
-YWdlLWVuY3J5cHRpb24ub3JnL3Yx...
------END AGE ENCRYPTED FILE-----
+OPENAI_API_KEY="YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOS..." # ENVSYNC_UPDATED_AT=2025-02-07T15:30:45Z
+DATABASE_URL="YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOS..." # ENVSYNC_UPDATED_AT=2025-02-07T15:30:45Z
 
 # === ENV_SYNC_FOOTER ===
 # VERSION: 1.2.3
@@ -293,7 +292,9 @@ YWdlLWVuY3J5cHRpb24ub3JnL3Yx...
 # === END_FOOTER ===
 ```
 
-**Metadata stays plaintext** (for discovery/versioning), only **secret values encrypted**.
+**Metadata stays plaintext** (for discovery/versioning).
+**Keys are plaintext**, but **values are individually encrypted** using AGE.
+Timestamps track when each key was last updated for granular merging.
 
 ## How It Works
 
