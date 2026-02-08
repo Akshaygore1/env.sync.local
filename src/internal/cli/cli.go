@@ -125,7 +125,7 @@ Commands:
   serve [options]          Start HTTP server (for HTTP mode only)
     Options:
       -p, --port PORT      Port to listen on (default: 5739)
-      -d, --daemon         Run as daemon
+      -d, --daemon         Run as daemon service
       -q, --quiet          Quiet mode
       -h, --help           Show help
 
@@ -292,6 +292,8 @@ func runServe(args []string, usageName string) int {
 			i++
 		case "-d", "--daemon":
 			opts.Daemon = true
+		case "--service":
+			opts.Service = true
 		case "-q", "--quiet":
 			opts.Quiet = true
 			_ = os.Setenv("ENV_SYNC_QUIET", "true")
@@ -299,7 +301,7 @@ func runServe(args []string, usageName string) int {
 			fmt.Println("Usage: " + usageName + " [options]")
 			fmt.Println("Options:")
 			fmt.Println("  -p, --port PORT    Port to listen on")
-			fmt.Println("  -d, --daemon       Run as daemon")
+			fmt.Println("  -d, --daemon       Run as daemon service")
 			fmt.Println("  -q, --quiet        Quiet mode")
 			return 0
 		default:
