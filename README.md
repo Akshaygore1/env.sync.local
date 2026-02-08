@@ -1,6 +1,6 @@
 # env-sync
 
-[![Bash](https://img.shields.io/badge/Bash-4.0%2B-4EAA25?logo=gnu-bash&logoColor=white)](https://www.gnu.org/software/bash/)
+[![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![SSH](https://img.shields.io/badge/SSH-Secure%20Transfer-green?logo=openssh&logoColor=white)](https://www.openssh.com/)
 [![AGE](https://img.shields.io/badge/AGE-Encryption-orange?logo=age&logoColor=white)](https://age-encryption.org/)
 
@@ -12,6 +12,19 @@
 Distributed secrets synchronization tool for local networks with **AGE encryption**. Sync your `.env` style secrets securely across multiple machines using SCP/SSH with at-rest encryption.
 
 ![](./docs/cover.png)
+
+## 🆕 What's New in v2.0
+
+**Major Rewrite in Go!**
+
+- **Single Binary**: No more bash scripts - everything is now a single, statically compiled Go binary
+- **Built-in AGE Encryption**: AGE encryption library is built-in, no need to install separate `age` package
+- **Improved Performance**: Faster sync operations and better resource usage
+- **Better Cross-Platform**: More consistent behavior across Linux, macOS, and Windows (WSL2)
+- **Easier Installation**: Just build and install one binary instead of multiple scripts
+- **Backward Compatible**: v2.0 can sync with v1.x bash-based installations
+
+**Legacy Support**: The bash-based v1.x version is still available in the `legacy/` directory and can be installed with `./install.sh --legacy`
 
 ## 🆕 What's New in v1.0 - Encryption Support
 
@@ -71,11 +84,14 @@ If you want to troubleshoot encryption manually, you can optionally install the 
 git clone https://github.com/championswimmer/env.sync.local.git
 cd env.sync.local
 
-# Install to /usr/local/bin (requires sudo)
+# Install v2.0 (Go binary) to /usr/local/bin (requires sudo)
 sudo ./install.sh
 
 # Or install to ~/.local/bin (user-only)
 ./install.sh --user
+
+# For legacy bash version (v1.x)
+sudo ./install.sh --legacy
 ```
 
 ### Initial Setup
@@ -439,32 +455,52 @@ echo "test" | age -r $(env-sync key show) | age -d -i ~/.config/env-sync/keys/ag
 ### Project Structure
 ```
 env-sync/
-├── bin/
-│   ├── env-sync              # Main CLI
-│   ├── env-sync-discover     # Peer discovery with key collection
-│   ├── env-sync-client       # Sync client with encryption
-│   ├── env-sync-serve        # HTTP server
-│   ├── env-sync-key          # Key management CLI
-│   └── env-sync-load         # Shell integration
-├── src/
-│   └── cmd/env-sync           # Go implementation entrypoint
+├── src/                       # Go source code
+│   ├── cmd/env-sync/          # Main entry point
+│   ├── internal/              # Internal packages
+│   │   ├── cli/               # CLI interface
+│   │   ├── sync/              # Sync logic
+│   │   ├── discovery/         # mDNS discovery
+│   │   ├── crypto/age/        # AGE encryption
+│   │   ├── transport/         # SSH/HTTP transport
+│   │   └── ...
+│   └── go.mod                 # Go module definition
 ├── target/
-│   └── env-sync               # Go build output
-├── lib/
-│   └── common.sh             # Shared functions + AGE encryption
-├── install.sh                # Installation script
-├── README.md                 # This file
-└── AGENTS.md                 # Developer documentation
+│   └── env-sync               # Built Go binary
+├── legacy/                    # Legacy bash v1.x (for reference)
+│   ├── bin/                   # Bash scripts
+│   └── lib/                   # Bash libraries
+├── install.sh                 # Installation script
+├── Makefile                   # Build automation
+├── README.md                  # This file
+└── AGENTS.md                  # Developer documentation
 ```
 
-### Go Build
+### Building from Source
+
 ```bash
-make build    # Build ./target/env-sync
-make test     # Run Go tests
+# Build the Go binary
+make build
+
+# Run tests
+make test
+
+# Install locally
+make install
+
+# Or use install.sh
+./install.sh --user
 ```
 
-To force the legacy Bash implementation when the Go binary is present:
+### Legacy Bash Version
+
+To use the legacy bash-based version (v1.x):
+
 ```bash
+# Install legacy version
+./install.sh --legacy
+
+# Or force use of bash scripts even if Go binary is present
 ENV_SYNC_USE_BASH=true env-sync status
 ```
 
