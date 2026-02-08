@@ -14,7 +14,7 @@ services:
       context: ../..
       dockerfile: tests/docker/Dockerfile
       args:
-        ENV_SYNC_GO_BIN: ${ENV_SYNC_GO_BIN:-target/env-sync}
+        ENV_SYNC_BIN: ${ENV_SYNC_BIN:-target/env-sync}
     hostname: alpha.local
     container_name: env-sync-alpha
     networks:
@@ -39,7 +39,7 @@ services:
       context: ../..
       dockerfile: tests/docker/Dockerfile
       args:
-        ENV_SYNC_GO_BIN: ${ENV_SYNC_GO_BIN:-target/env-sync}
+        ENV_SYNC_BIN: ${ENV_SYNC_BIN:-target/env-sync}
     hostname: beta.local
     container_name: env-sync-beta
     networks:
@@ -64,7 +64,7 @@ services:
       context: ../..
       dockerfile: tests/docker/Dockerfile
       args:
-        ENV_SYNC_GO_BIN: ${ENV_SYNC_GO_BIN:-target/env-sync}
+        ENV_SYNC_BIN: ${ENV_SYNC_BIN:-target/env-sync}
     hostname: gamma.local
     container_name: env-sync-gamma
     networks:

@@ -41,9 +41,9 @@ RUN sed -i 's/hosts:.*files dns/hosts: files mdns_minimal [NOTFOUND=return] dns 
 # Legacy bash scripts (v1.x)
 COPY legacy/bin/ /usr/local/bin/
 COPY legacy/lib/ /usr/local/lib/
-# Go binary (v2.0)
-ARG ENV_SYNC_GO_BIN=target/env-sync
-COPY ${ENV_SYNC_GO_BIN} /usr/local/bin/env-sync-go
+# Go binary (v2.0) - only copied if building with Go
+ARG ENV_SYNC_BIN=target/env-sync
+COPY ${ENV_SYNC_BIN} /usr/local/bin/env-sync-go
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/env-sync*
