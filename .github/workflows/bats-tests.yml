@@ -39,7 +39,7 @@ jobs:
         env:
           ENV_SYNC_SKIP_GO_BUILD: "true"
           ENV_SYNC_USE_BASH: "true"
-        run: ./test-dockers.sh --skip-go-build --debug
+        run: ./test-dockers.sh --skip-go-build --debug --no-cleanup
 
       - name: Verify Version (Bash)
         run: docker exec env-sync-alpha env-sync --version
@@ -71,7 +71,7 @@ jobs:
         run: make test
 
       - name: Run Docker Tests (Go)
-        run: ./test-dockers.sh --debug
+        run: ./test-dockers.sh --debug --no-cleanup
 
       - name: Verify Version (Go)
         run: docker exec env-sync-alpha env-sync --version
