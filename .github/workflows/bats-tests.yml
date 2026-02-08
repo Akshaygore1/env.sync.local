@@ -39,8 +39,17 @@ jobs:
         env:
           ENV_SYNC_SKIP_GO_BUILD: "true"
           ENV_SYNC_USE_BASH: "true"
-          ENV_SYNC_GO_BIN: bin/env-sync
         run: ./test-dockers.sh --skip-go-build --debug
+
+      - name: Verify Version (Bash)
+        env:
+          ENV_SYNC_SKIP_GO_BUILD: "true"
+          ENV_SYNC_USE_BASH: "true"
+        run: |
+          ./start-test-env.sh
+          docker exec -e ENV_SYNC_USE_BASH=true env-sync-alpha env-sync --version
+          ./start-test-env.sh --stop 
+
   go-tests:
     runs-on: ubuntu-latest
 
@@ -69,3 +78,9 @@ jobs:
 
       - name: Run Docker Tests (Go)
         run: ./test-dockers.sh --debug
+
+      - name: Verify Version (Go)
+        run: |
+          ./start-test-env.sh
+          docker exec env-sync-alpha env-sync --version
+          ./start-test-env.sh --stop 

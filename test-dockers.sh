@@ -107,14 +107,20 @@ if [ $SHOW_HELP -eq 1 ]; then
     exit 0
 fi
 
-if [ -z "${ENV_SYNC_GO_BIN:-}" ]; then
-    if [ $SKIP_GO_BUILD -eq 1 ]; then
-        ENV_SYNC_GO_BIN="bin/env-sync"
-    else
-        ENV_SYNC_GO_BIN="target/env-sync"
-    fi
+# Set up binary paths
+ENV_SYNC_GO_BIN="${ENV_SYNC_GO_BIN:-target/env-sync}"
+ENV_SYNC_BASH_BIN="${ENV_SYNC_BASH_BIN:-legacy/bin/env-sync}"
+
+# Determine which binary to use based on mode
+if [ $SKIP_GO_BUILD -eq 1 ]; then
+    ENV_SYNC_BIN="$ENV_SYNC_BASH_BIN"
+else
+    ENV_SYNC_BIN="$ENV_SYNC_GO_BIN"
 fi
+
 export ENV_SYNC_GO_BIN
+export ENV_SYNC_BASH_BIN
+export ENV_SYNC_BIN
 
 if [ $SKIP_GO_BUILD -eq 1 ] && [ -z "${ENV_SYNC_USE_BASH:-}" ]; then
     export ENV_SYNC_USE_BASH="true"

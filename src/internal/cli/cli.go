@@ -55,6 +55,11 @@ func Run(argv []string) int {
 		return 0
 	}
 
+	if args[0] == "version" || args[0] == "--version" || args[0] == "-v" {
+		fmt.Println("env-sync version " + config.Version)
+		return 0
+	}
+
 	if strings.HasPrefix(args[0], "-") {
 		return runSync(args, "env-sync sync", false)
 	}
@@ -91,6 +96,9 @@ func Run(argv []string) int {
 		return runShow(args)
 	case "help", "--help", "-h":
 		showHelp()
+		return 0
+	case "version", "--version", "-v":
+		fmt.Println("env-sync version " + config.Version)
 		return 0
 	default:
 		logging.Log("ERROR", "Unknown command: "+command)
