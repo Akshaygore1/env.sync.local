@@ -817,6 +817,9 @@ case "$COMMAND" in
     help|--help|-h)
         show_help
         ;;
+    version|--version|-v)
+        echo "env-sync version $ENV_SYNC_VERSION"
+        ;;
     *)
         log "ERROR" "Unknown command: $COMMAND"
         show_help
