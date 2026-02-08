@@ -180,7 +180,7 @@ check_prerequisites() {
 
 # Function to build Go binary with Docker
 build_go_binary() {
-    local go_image="${ENV_SYNC_GO_DOCKER_IMAGE:-golang:1.22}"
+    local go_image="${ENV_SYNC_GO_DOCKER_IMAGE:-golang:1.24}"
 
     print_info "Building Go binary with Docker (${go_image})..."
     mkdir -p "$SCRIPT_DIR/target"
