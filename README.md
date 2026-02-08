@@ -61,18 +61,8 @@ ssh-copy-id mbp16.local
 ssh-copy-id razer.local
 ```
 
-Install AGE encryption:
-
-```bash
-# macOS
-brew install age
-
-# Linux (Ubuntu/Debian)
-sudo apt-get install age
-
-# Linux (Fedora)
-sudo dnf install age
-```
+AGE encryption is built into the Go binary, so no additional package install is required.
+If you want to troubleshoot encryption manually, you can optionally install the `age` CLI.
 
 ### Installation
 
@@ -133,7 +123,7 @@ env-sync list                               # List all keys (values hidden)
 env-sync show KEY                           # Show value of specific key
 
 # Other commands
-env-sync serve -d          # Start HTTP server (for HTTP mode only)
+env-sync serve -d          # Start HTTP server as a background service (HTTP mode only)
 env-sync discover          # Find peers on network
 env-sync status            # Show current status
 env-sync init              # Create new secrets file
@@ -148,9 +138,8 @@ env-sync --help            # Show full help
 **On the new machine (D) only:**
 
 ```bash
-# 1. Install env-sync and AGE
+# 1. Install env-sync
 curl -fsSL .../install.sh | bash
-brew install age  # or apt install age
 
 # 2. Initialize with encryption
 env-sync init --encrypted
@@ -404,7 +393,7 @@ env-sync status
 # View logs
 tail -f ~/.config/env-sync/logs/env-sync.log
 
-# Test encryption
+# Test encryption (optional, if age CLI is installed)
 echo "test" | age -r $(env-sync key show) | age -d -i ~/.config/env-sync/keys/age_key
 ```
 

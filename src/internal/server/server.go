@@ -1,12 +1,15 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"time"
+
+	"github.com/kardianos/service"
 
 	"envsync/internal/config"
 	"envsync/internal/logging"
@@ -15,9 +18,10 @@ import (
 )
 
 type Options struct {
-	Port   string
-	Daemon bool
-	Quiet  bool
+	Port    string
+	Daemon  bool
+	Quiet   bool
+	Service bool
 }
 
 func Run(opts Options) error {
@@ -30,6 +34,9 @@ func Run(opts Options) error {
 		return err
 	}
 
+	if opts.Service {
+		return runService(opts)
+	}
 	if opts.Daemon {
 		return runDaemon(opts)
 	}
@@ -38,30 +45,101 @@ func Run(opts Options) error {
 }
 
 func runDaemon(opts Options) error {
-	exe, err := os.Executable()
+	svc, err := newService(opts)
 	if err != nil {
 		return err
 	}
-	args := []string{"serve", "--port", opts.Port}
-	if opts.Quiet {
-		args = append(args, "--quiet")
+	status, err := svc.Status()
+	if err != nil {
+		if !errors.Is(err, service.ErrNotInstalled) {
+			return err
+		}
+		if err := svc.Install(); err != nil {
+			return err
+		}
+	} else if status == service.StatusRunning {
+		logging.Log("INFO", "Server service already running")
+		return nil
 	}
-	cmd := exec.Command(exe, args...)
-	devNull, _ := os.OpenFile(os.DevNull, os.O_RDWR, 0o600)
-	cmd.Stdout = devNull
-	cmd.Stderr = devNull
-	cmd.Stdin = devNull
-	if err := cmd.Start(); err != nil {
+
+	if err := svc.Start(); err != nil {
 		return err
 	}
-	logging.Log("SUCCESS", fmt.Sprintf("Server started in background (PID: %d)", cmd.Process.Pid))
+	logging.Log("SUCCESS", "Server service started")
 	return nil
 }
 
 func runServer(opts Options) error {
+	server, err := buildServer(opts)
+	if err != nil {
+		return err
+	}
+	return server.ListenAndServe()
+}
+
+func runService(opts Options) error {
+	svc, err := newService(opts)
+	if err != nil {
+		return err
+	}
+	return svc.Run()
+}
+
+func newService(opts Options) (service.Service, error) {
+	prg := &serviceProgram{opts: opts}
+	svcConfig := &service.Config{
+		Name:        "env-sync",
+		DisplayName: "env-sync",
+		Description: "env-sync HTTP server",
+		Arguments:   serviceArgs(opts),
+		Option:      service.KeyValue{"UserService": true},
+	}
+	return service.New(prg, svcConfig)
+}
+
+func serviceArgs(opts Options) []string {
+	args := []string{"serve", "--service"}
+	if opts.Port != "" {
+		args = append(args, "--port", opts.Port)
+	}
+	if opts.Quiet {
+		args = append(args, "--quiet")
+	}
+	return args
+}
+
+type serviceProgram struct {
+	opts   Options
+	server *http.Server
+}
+
+func (p *serviceProgram) Start(_ service.Service) error {
+	server, err := buildServer(p.opts)
+	if err != nil {
+		return err
+	}
+	p.server = server
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logging.Log("ERROR", fmt.Sprintf("Server stopped: %v", err))
+		}
+	}()
+	return nil
+}
+
+func (p *serviceProgram) Stop(_ service.Service) error {
+	if p.server == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return p.server.Shutdown(ctx)
+}
+
+func buildServer(opts Options) (*http.Server, error) {
 	if err := checkPort(opts.Port); err != nil {
 		logging.Log("WARN", fmt.Sprintf("Port %s is already in use", opts.Port))
-		return err
+		return nil, err
 	}
 
 	if err := os.MkdirAll(config.ConfigDir(), 0o700); err == nil {
@@ -80,7 +158,7 @@ func runServer(opts Options) error {
 	logging.Log("INFO", "  - GET /secrets.env  - Get secrets file")
 
 	server := &http.Server{Addr: ":" + opts.Port, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
-	return server.ListenAndServe()
+	return server, nil
 }
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
