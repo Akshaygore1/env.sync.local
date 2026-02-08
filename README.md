@@ -78,7 +78,7 @@ sudo dnf install age
 
 ```bash
 # Clone or download the repository
-git clone https://github.com/yourusername/env-sync.git
+git clone https://github.com/championswimmer/env-sync.git
 cd env-sync
 
 # Install to /usr/local/bin (requires sudo)
