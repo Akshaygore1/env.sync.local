@@ -42,9 +42,12 @@ jobs:
         run: ./test-dockers.sh --skip-go-build --debug
 
       - name: Verify Version (Bash)
+        env:
+          ENV_SYNC_SKIP_GO_BUILD: "true"
+          ENV_SYNC_USE_BASH: "true"
         run: |
           ./start-test-env.sh
-          docker exec env-sync-alpha env-sync --version
+          docker exec -e ENV_SYNC_USE_BASH=true env-sync-alpha env-sync --version
           ./start-test-env.sh --stop 
 
   go-tests:
