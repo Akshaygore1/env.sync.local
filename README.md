@@ -68,8 +68,8 @@ If you want to troubleshoot encryption manually, you can optionally install the 
 
 ```bash
 # Clone or download the repository
-git clone https://github.com/yourusername/env-sync.git
-cd env-sync
+git clone https://github.com/championswimmer/env.sync.local.git
+cd env.sync.local
 
 # Install to /usr/local/bin (requires sudo)
 sudo ./install.sh
