@@ -3,6 +3,7 @@
 *.bak
 *.log
 target/
+dist/
 ~/.secrets.env
 ~/.config/env-sync/
 
