@@ -417,6 +417,9 @@ echo "test" | age -r $(env-sync key show) | age -d -i ~/.config/env-sync/keys/ag
 - ✅ Requires SSH key authentication
 - ✅ File permissions: 600
 - ✅ AGE encryption at rest
+- ⚠️ SSH host keys are auto-accepted on first connect (StrictHostKeyChecking=accept-new)
+  - This is TOFU behavior and can enable MITM attacks on first connection
+  - Set `ENV_SYNC_STRICT_SSH=true` and pre-populate known_hosts for production
 
 **HTTP Mode (Fallback - Insecure)**
 - ❌ Secrets transmitted in plaintext
@@ -454,11 +457,26 @@ env-sync/
 │   ├── env-sync-serve        # HTTP server
 │   ├── env-sync-key          # Key management CLI
 │   └── env-sync-load         # Shell integration
+├── src/
+│   └── cmd/env-sync           # Go implementation entrypoint
+├── target/
+│   └── env-sync               # Go build output
 ├── lib/
 │   └── common.sh             # Shared functions + AGE encryption
 ├── install.sh                # Installation script
 ├── README.md                 # This file
 └── AGENTS.md                 # Developer documentation
+```
+
+### Go Build
+```bash
+make build    # Build ./target/env-sync
+make test     # Run Go tests
+```
+
+To force the legacy Bash implementation when the Go binary is present:
+```bash
+ENV_SYNC_USE_BASH=true env-sync status
 ```
 
 ## License
