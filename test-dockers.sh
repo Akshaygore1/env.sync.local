@@ -8,6 +8,7 @@
 # Usage: ./test-dockers.sh [options]
 #   --no-cleanup    Keep containers running after tests (for debugging)
 #   --setup-only    Only setup the test environment, don't run tests
+#   --debug         Enable debug mode (print outputs of failures)
 #   --filter PATTERN Run only tests matching the pattern
 #   --formatter FMT  Output format (pretty, tap, junit, etc.) [default: pretty]
 #   --skip-go-build Skip building the Go binary (use bash scripts only)
@@ -33,6 +34,7 @@ NO_CLEANUP=0
 SETUP_ONLY=0
 FILTER=""
 FORMATTER="pretty"
+DEBUG_MODE=0
 SHOW_HELP=0
 SKIP_GO_BUILD=0
 # Default to tap in any CI environment
@@ -51,6 +53,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --setup-only)
             SETUP_ONLY=1
+            shift
+            ;;
+        --debug)
+            DEBUG_MODE=1
             shift
             ;;
         --filter)
@@ -248,6 +254,10 @@ BATS_ARGS="--timing --formatter $FORMATTER"
 
 if [ -n "$FILTER" ]; then
     BATS_ARGS="$BATS_ARGS --filter '$FILTER'"
+fi
+
+if [ $DEBUG_MODE -eq 1 ]; then
+    BATS_ARGS="$BATS_ARGS --print-output-on-failure"
 fi
 
 if [ $NO_CLEANUP -eq 1 ]; then
