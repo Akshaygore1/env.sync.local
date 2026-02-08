@@ -22,8 +22,10 @@ From the project root:
 
 Tests set `ENV_SYNC_DISCOVERY_TIMEOUT=2` inside containers to keep discovery waits short. Override it by exporting a different value before running the tests.
 
+The Go build uses a Docker Go image (default: `golang:1.22`). Override it by setting `ENV_SYNC_GO_DOCKER_IMAGE` if you need a different version.
+
 This will:
-1. Build the Go binary (`make build`)
+1. Build the Go binary using Docker (Linux arch matching your Docker engine)
 2. Check prerequisites (Docker, docker-compose, git)
 3. Install bats-core testing framework
 4. Generate SSH keys for containers

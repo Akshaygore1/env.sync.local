@@ -33,6 +33,25 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
+build_go_binary() {
+    local go_image="${ENV_SYNC_GO_DOCKER_IMAGE:-golang:1.22}"
+
+    print_info "Building Go binary with Docker (${go_image})..."
+    mkdir -p "$SCRIPT_DIR/target"
+
+    docker run --rm \
+        -u "$(id -u):$(id -g)" \
+        -e CGO_ENABLED=0 \
+        -e HOME=/tmp \
+        -e GOPATH=/tmp/go \
+        -e GOCACHE=/tmp/go-cache \
+        -e GOMODCACHE=/tmp/go-mod \
+        -v "$SCRIPT_DIR":/workspace \
+        -w /workspace/src \
+        "$go_image" \
+        bash -c 'mkdir -p /workspace/target && /usr/local/go/bin/go build -o /workspace/target/env-sync ./cmd/env-sync'
+}
+
 # Parse arguments
 CLEAN=0
 STOP=0
@@ -86,8 +105,7 @@ echo "=============================================="
 echo ""
 
 # Build Go binary
-print_info "Building Go binary..."
-make -C "$SCRIPT_DIR" build
+build_go_binary
 
 # Generate SSH keys
 print_info "Generating SSH keys..."
