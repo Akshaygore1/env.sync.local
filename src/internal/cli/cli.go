@@ -33,6 +33,9 @@ func Run(argv []string) int {
 	base := filepath.Base(argv[0])
 	args := argv[1:]
 
+	// Handle global --verbose flag before routing to subcommands
+	args = handleGlobalFlags(args)
+
 	switch base {
 	case "env-sync-client":
 		return runSync(args, "env-sync-client", true)
@@ -55,7 +58,13 @@ func Run(argv []string) int {
 		return 0
 	}
 
-	if args[0] == "version" || args[0] == "--version" || args[0] == "-v" {
+	if args[0] == "version" || args[0] == "--version" {
+		fmt.Println("env-sync version " + config.Version)
+		return 0
+	}
+
+	// Handle legacy -v as version (but --verbose takes precedence in handleGlobalFlags)
+	if args[0] == "-v" && !config.IsVerbose() {
 		fmt.Println("env-sync version " + config.Version)
 		return 0
 	}
@@ -107,10 +116,26 @@ func Run(argv []string) int {
 	}
 }
 
+// handleGlobalFlags processes global flags (like --verbose) and returns remaining args
+func handleGlobalFlags(args []string) []string {
+	remaining := []string{}
+	for _, arg := range args {
+		if arg == "--verbose" {
+			config.SetVerbose(true)
+		} else {
+			remaining = append(remaining, arg)
+		}
+	}
+	return remaining
+}
+
 func showHelp() {
 	fmt.Print(`env-sync - Distributed secrets synchronization tool
 
-Usage: env-sync [command] [options]
+Usage: env-sync [global options] [command] [options]
+
+Global Options:
+  --verbose                Print verbose output including commands executed
 
 SECURITY NOTICE:
   By default, env-sync uses SCP (SSH) for secure peer-to-peer synchronization.
@@ -1117,7 +1142,9 @@ func runKeyExport(args []string) int {
 			logging.Log("ERROR", "qrencode not installed. Install with: brew install qrencode")
 			return 1
 		}
-		cmd := exec.Command("qrencode", "-t", "ANSIUTF8")
+		args := []string{"qrencode", "-t", "ANSIUTF8"}
+		logging.LogCommand(args...)
+		cmd := exec.Command(args[0], args[1:]...)
 		cmd.Stdin = strings.NewReader(pubkey)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -1165,13 +1192,16 @@ func runKeyImport(args []string) int {
 
 	if fromHost != "" {
 		logging.Log("INFO", "Fetching public key from "+fromHost+"...")
-		output, err := exec.Command(
+		args := []string{
 			"ssh",
 			"-o", "ConnectTimeout=5",
-			"-o", "StrictHostKeyChecking="+sshtransport.HostKeyCheckingMode(),
+			"-o", "StrictHostKeyChecking=" + sshtransport.HostKeyCheckingMode(),
 			fromHost,
 			"cat ~/.config/env-sync/keys/age_key.pub",
-		).Output()
+		}
+		logging.LogCommand(args...)
+		cmd := exec.Command(args[0], args[1:]...)
+		output, err := cmd.Output()
 		if err != nil {
 			logging.Log("ERROR", "Failed to fetch pubkey from "+fromHost)
 			return 1
@@ -1307,15 +1337,17 @@ func runKeyRequestAccess(args []string) int {
 		triggered := 0
 		for _, host := range hosts {
 			logging.Log("INFO", "Triggering re-encryption on "+host+"...")
-			cmd := exec.Command(
+			args := []string{
 				"ssh",
 				"-o", "ConnectTimeout=5",
-				"-o", "StrictHostKeyChecking="+sshtransport.HostKeyCheckingMode(),
+				"-o", "StrictHostKeyChecking=" + sshtransport.HostKeyCheckingMode(),
 				host,
 				"bash", "-c",
 				"mkdir -p ~/.config/env-sync/keys/known_hosts && printf %s \"$1\" > ~/.config/env-sync/keys/known_hosts/$2.pub && env-sync 2>/dev/null || true && echo 'SUCCESS'",
 				"bash", localPubkey, secrets.GetHostname(),
-			)
+			}
+			logging.LogCommand(args...)
+			cmd := exec.Command(args[0], args[1:]...)
 			output, _ := cmd.Output()
 			if strings.Contains(string(output), "SUCCESS") {
 				logging.Log("SUCCESS", "Triggered re-encryption on "+host)
@@ -1351,15 +1383,17 @@ func runKeyRequestAccess(args []string) int {
   "timestamp": "%s"
 }
 `, secrets.GetHostname(), localPubkey, secrets.GetTimestamp())
-			cmd := exec.Command(
+			args := []string{
 				"ssh",
 				"-o", "ConnectTimeout=5",
-				"-o", "StrictHostKeyChecking="+sshtransport.HostKeyCheckingMode(),
+				"-o", "StrictHostKeyChecking=" + sshtransport.HostKeyCheckingMode(),
 				host,
 				"bash", "-c",
 				"mkdir -p ~/.config/env-sync/requests && cat > ~/.config/env-sync/requests/$1.request && echo 'REQUEST_SENT'",
 				"bash", secrets.GetHostname(),
-			)
+			}
+			logging.LogCommand(args...)
+			cmd := exec.Command(args[0], args[1:]...)
 			cmd.Stdin = strings.NewReader(payload)
 			output, _ := cmd.Output()
 			if strings.Contains(string(output), "REQUEST_SENT") {

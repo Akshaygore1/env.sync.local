@@ -121,7 +121,9 @@ func discoverAvahi(timeout time.Duration) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "avahi-browse", "-t", "-r", "-p", config.Service)
+	args := []string{"avahi-browse", "-t", "-r", "-p", config.Service}
+	logging.LogCommand(args...)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	output, _ := cmd.Output()
 	lines := strings.Split(string(output), "\n")
 	peers := []string{}
@@ -150,7 +152,9 @@ func discoverDnssd(timeout time.Duration) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "dns-sd", "-B", config.Service, "local.")
+	args := []string{"dns-sd", "-B", config.Service, "local."}
+	logging.LogCommand(args...)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	output, _ := cmd.Output()
 	lines := strings.Split(string(output), "\n")
 	peers := []string{}
@@ -164,7 +168,9 @@ func discoverDnssd(timeout time.Duration) ([]string, error) {
 		}
 		name := fields[len(fields)-1]
 		infoCtx, cancelInfo := context.WithTimeout(context.Background(), 2*time.Second)
-		infoCmd := exec.CommandContext(infoCtx, "dns-sd", "-L", name, config.Service, "local.")
+		infoArgs := []string{"dns-sd", "-L", name, config.Service, "local."}
+		logging.LogCommand(infoArgs...)
+		infoCmd := exec.CommandContext(infoCtx, infoArgs[0], infoArgs[1:]...)
 		infoOutput, _ := infoCmd.Output()
 		cancelInfo()
 		for _, infoLine := range strings.Split(string(infoOutput), "\n") {
@@ -209,7 +215,9 @@ func discoverFallback(timeout time.Duration) ([]string, error) {
 			continue
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		ping := exec.CommandContext(ctx, "ping", "-c", "1", "-W", "1", host)
+		pingArgs := []string{"ping", "-c", "1", "-W", "1", host}
+		logging.LogCommand(pingArgs...)
+		ping := exec.CommandContext(ctx, pingArgs[0], pingArgs[1:]...)
 		_ = ping.Run()
 		cancel()
 		health, err := FetchHealth(host)
@@ -227,7 +235,9 @@ func FetchHealth(host string) (HealthResponse, error) {
 }
 
 func fetchPubkey(host string) string {
-	cmd := exec.Command("ssh", "-n", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking="+sshtransport.HostKeyCheckingMode(), host, "cat ~/.config/env-sync/keys/age_key.pub")
+	args := []string{"ssh", "-n", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=" + sshtransport.HostKeyCheckingMode(), host, "cat ~/.config/env-sync/keys/age_key.pub"}
+	logging.LogCommand(args...)
+	cmd := exec.Command(args[0], args[1:]...)
 	output, err := cmd.Output()
 	if err != nil {
 		return ""
