@@ -16,6 +16,7 @@ INSTALL_LEGACY=false
 INSTALL_PREFIX="/usr/local"
 BIN_DIR="$INSTALL_PREFIX/bin"
 LIB_DIR="$INSTALL_PREFIX/lib/env-sync"
+ENV_SYNC_LOAD_LINE='eval "$(env-sync load --quiet 2>/dev/null)"'
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -153,6 +154,29 @@ if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
     fi
 fi
 
+add_shell_integration() {
+    local target_file=""
+
+    if [[ -f "$HOME/.profile" ]]; then
+        target_file="$HOME/.profile"
+    elif [[ -f "$HOME/.bash_profile" ]]; then
+        target_file="$HOME/.bash_profile"
+    else
+        target_file="$HOME/.bashrc"
+        if [[ ! -f "$target_file" ]]; then
+            touch "$target_file"
+        fi
+    fi
+
+    if grep -F "env-sync load" "$target_file" >/dev/null 2>&1; then
+        echo "Shell integration already present in ${target_file/$HOME/~}"
+        return
+    fi
+
+    printf '\n%s\n' "$ENV_SYNC_LOAD_LINE" >> "$target_file"
+    echo "Added shell integration to ${target_file/$HOME/~}"
+}
+
 # Create directories
 echo "Creating directories..."
 mkdir -p "$BIN_DIR"
@@ -239,6 +263,8 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     echo "  export PATH=\"$BIN_DIR:\$PATH\""
     echo ""
 fi
+
+add_shell_integration
 
 # Post-install instructions
 echo "Next steps:"
