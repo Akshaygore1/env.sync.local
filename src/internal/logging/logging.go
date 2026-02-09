@@ -11,11 +11,13 @@ import (
 )
 
 const (
-	red    = "\033[0;31m"
-	green  = "\033[0;32m"
-	yellow = "\033[1;33m"
-	blue   = "\033[0;34m"
-	reset  = "\033[0m"
+	red     = "\033[0;31m"
+	green   = "\033[0;32m"
+	yellow  = "\033[1;33m"
+	blue    = "\033[0;34m"
+	cyan    = "\033[0;36m"
+	magenta = "\033[0;35m"
+	reset   = "\033[0m"
 )
 
 func Log(level string, message string) {
@@ -42,7 +44,22 @@ func Log(level string, message string) {
 		fmt.Fprintf(os.Stderr, "%sINFO:%s %s\n", blue, reset, message)
 	case "SUCCESS":
 		fmt.Fprintf(os.Stderr, "%sSUCCESS:%s %s\n", green, reset, message)
+	case "DEBUG":
+		if config.IsVerbose() {
+			fmt.Fprintf(os.Stderr, "%sDEBUG:%s %s\n", cyan, reset, message)
+		}
+	case "CMD":
+		if config.IsVerbose() {
+			fmt.Fprintf(os.Stderr, "%s$ %s%s\n", magenta, reset, message)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "%s\n", message)
+	}
+}
+
+// LogCommand logs a command before execution if verbose mode is enabled
+func LogCommand(cmdArgs ...string) {
+	if config.IsVerbose() {
+		Log("CMD", strings.Join(cmdArgs, " "))
 	}
 }

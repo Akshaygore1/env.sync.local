@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -11,6 +12,26 @@ const (
 	Service              = "_envsync._tcp"
 	DefaultInitTimestamp = "1970-01-01T00:00:00Z"
 )
+
+var (
+	verboseMode bool
+)
+
+// SetVerbose sets the global verbose mode
+func SetVerbose(enabled bool) {
+	verboseMode = enabled
+	if enabled {
+		_ = os.Setenv("ENV_SYNC_VERBOSE", "true")
+	}
+}
+
+// IsVerbose returns whether verbose mode is enabled
+func IsVerbose() bool {
+	if verboseMode {
+		return true
+	}
+	return strings.EqualFold(os.Getenv("ENV_SYNC_VERBOSE"), "true")
+}
 
 func HomeDir() string {
 	if home, err := os.UserHomeDir(); err == nil {
