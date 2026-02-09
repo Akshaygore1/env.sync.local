@@ -149,6 +149,13 @@ env-sync cron --install    # Setup 30-min sync cron job
 env-sync --help            # Show full help
 ```
 
+### Running as a background service
+
+`env-sync serve -d` installs a user-level service that keeps the HTTP server running, advertises `_envsync._tcp` via mDNS/Bonjour, and performs a sync every 30 minutes. The service restarts automatically after login or reboot.
+
+- Linux (systemd user): `systemctl --user status env-sync` (logs: `journalctl --user -u env-sync`)
+- macOS (LaunchAgent): `launchctl print gui/$(id -u)/env-sync` (restart: `launchctl kickstart -k gui/$(id -u)/env-sync`)
+
 ### Adding a New Machine (Machine D joining A, B, C)
 
 **On the new machine (D) only:**

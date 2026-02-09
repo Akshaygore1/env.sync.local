@@ -12,21 +12,27 @@ import (
 	"github.com/kardianos/service"
 
 	"envsync/internal/config"
+	"envsync/internal/discovery"
 	"envsync/internal/logging"
 	"envsync/internal/metadata"
 	"envsync/internal/secrets"
+	syncer "envsync/internal/sync"
 )
 
 type Options struct {
-	Port    string
-	Daemon  bool
-	Quiet   bool
-	Service bool
+	Port         string
+	Daemon       bool
+	Quiet        bool
+	Service      bool
+	SyncInterval time.Duration
 }
 
 func Run(opts Options) error {
 	if opts.Port == "" {
 		opts.Port = config.EnvSyncPort()
+	}
+	if opts.SyncInterval == 0 {
+		opts.SyncInterval = 30 * time.Minute
 	}
 
 	if err := secrets.ValidateSecretsFile(config.SecretsFile()); err != nil {
@@ -109,11 +115,16 @@ func serviceArgs(opts Options) []string {
 }
 
 type serviceProgram struct {
-	opts   Options
-	server *http.Server
+	opts       Options
+	server     *http.Server
+	cancel     context.CancelFunc
+	advertiser *discovery.Advertiser
 }
 
 func (p *serviceProgram) Start(_ service.Service) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancel = cancel
+
 	server, err := buildServer(p.opts)
 	if err != nil {
 		return err
@@ -124,16 +135,58 @@ func (p *serviceProgram) Start(_ service.Service) error {
 			logging.Log("ERROR", fmt.Sprintf("Server stopped: %v", err))
 		}
 	}()
+	if adv, err := discovery.StartAdvertiser(p.opts.Port); err == nil {
+		p.advertiser = adv
+	} else {
+		logging.Log("WARN", fmt.Sprintf("Failed to start mDNS advertisement: %v", err))
+	}
+	go startSyncLoop(ctx, p.opts)
 	return nil
 }
 
 func (p *serviceProgram) Stop(_ service.Service) error {
+	if p.cancel != nil {
+		p.cancel()
+	}
+	if p.advertiser != nil {
+		_ = p.advertiser.Stop()
+	}
 	if p.server == nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return p.server.Shutdown(ctx)
+}
+
+func startSyncLoop(ctx context.Context, opts Options) {
+	syncInterval := opts.SyncInterval
+	if syncInterval <= 0 {
+		syncInterval = 30 * time.Minute
+	}
+
+	runSync := func() {
+		if _, err := os.Stat(config.SecretsFile()); err != nil {
+			logging.Log("WARN", "Skipping sync: secrets file not found")
+			return
+		}
+		syncOpts := syncer.Options{Quiet: true}
+		if err := syncer.Run(syncOpts); err != nil {
+			logging.Log("WARN", fmt.Sprintf("Background sync failed: %v", err))
+		}
+	}
+
+	runSync()
+	ticker := time.NewTicker(syncInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			runSync()
+		}
+	}
 }
 
 func buildServer(opts Options) (*http.Server, error) {
