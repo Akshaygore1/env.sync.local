@@ -22,8 +22,10 @@ func GetRemoteSecretsPath(host string) (string, error) {
 	args := []string{"ssh", "-n", "-o", "BatchMode=yes", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=" + HostKeyCheckingMode(), host, "env-sync", "path"}
 	logging.LogCommand(args...)
 	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stderr = nil // Suppress stderr to avoid noise if env-sync path is not available
 	output, err := cmd.Output()
 	if err != nil {
+		// Silently fail - the caller will fall back to the default path
 		return "", fmt.Errorf("failed to get remote path: %w", err)
 	}
 	return strings.TrimSpace(string(output)), nil
