@@ -251,7 +251,7 @@ init_secrets_file() {
 # TIMESTAMP: $timestamp
 # HOST: $hostname
 # MODIFIED: $timestamp
-# CHECKSUM: 
+# CHECKSUM:
 # === END_METADATA ===
 
 # Add your secrets below this line
