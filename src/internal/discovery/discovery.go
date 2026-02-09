@@ -156,36 +156,53 @@ func discoverDnssd(timeout time.Duration) ([]string, error) {
 	logging.LogCommand(args...)
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	output, _ := cmd.Output()
+
+	// dns-sd -B output format:
+	// Timestamp     A/R    Flags  if Domain               Service Type         Instance Name
+	// 3:26:33.519  Add        3  14 local.               _envsync._tcp.       beelink
 	lines := strings.Split(string(output), "\n")
 	peers := []string{}
+	instanceNames := make(map[string]bool)
+
 	for _, line := range lines {
-		if !strings.HasPrefix(strings.TrimSpace(line), "+") || !strings.Contains(line, config.Service) {
+		// Skip empty lines and headers
+		if line == "" || strings.Contains(line, "Timestamp") || strings.Contains(line, "STARTING") {
 			continue
 		}
+
 		fields := strings.Fields(line)
-		if len(fields) == 0 {
+		// Expected format: timestamp, "Add"/"Rmv", flags, interface, domain, service_type, instance_name
+		// We need at least 7 fields
+		if len(fields) < 7 {
 			continue
 		}
-		name := fields[len(fields)-1]
-		infoCtx, cancelInfo := context.WithTimeout(context.Background(), 2*time.Second)
-		infoArgs := []string{"dns-sd", "-L", name, config.Service, "local."}
-		logging.LogCommand(infoArgs...)
-		infoCmd := exec.CommandContext(infoCtx, infoArgs[0], infoArgs[1:]...)
-		infoOutput, _ := infoCmd.Output()
-		cancelInfo()
-		for _, infoLine := range strings.Split(string(infoOutput), "\n") {
-			if !strings.HasPrefix(strings.TrimSpace(infoLine), "+") {
-				continue
-			}
-			parts := strings.Fields(infoLine)
-			if len(parts) >= 7 {
-				target := strings.TrimSuffix(parts[6], ".")
-				if target != "" {
-					peers = append(peers, target)
-				}
-			}
+
+		// Check if this is an "Add" entry for our service
+		if fields[1] != "Add" {
+			continue
 		}
+
+		// Service type should be at index 5
+		if fields[5] != config.Service {
+			continue
+		}
+
+		// Instance name is the last field
+		instanceName := fields[len(fields)-1]
+		if instanceName == "" || instanceNames[instanceName] {
+			continue
+		}
+		instanceNames[instanceName] = true
+
+		// Add .local suffix if not present
+		hostname := instanceName
+		if !strings.HasSuffix(hostname, ".local") {
+			hostname = hostname + ".local"
+		}
+
+		peers = append(peers, hostname)
 	}
+
 	return peers, nil
 }
 
