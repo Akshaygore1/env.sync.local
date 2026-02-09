@@ -334,7 +334,7 @@ func reencryptSecrets(inputFile, outputFile string) error {
 	}
 
 	var newLines []string
-	linePattern := regexp.MustCompile(`^([A-Z_][A-Z0-9_]*)="(.*)"\s*#.*ENVSYNC_UPDATED_AT=(.*)`)
+	linePattern := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)="(.*)"\s*#.*ENVSYNC_UPDATED_AT=(.*)`)
 	for _, line := range strings.Split(content, "\n") {
 		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			newLines = append(newLines, line)

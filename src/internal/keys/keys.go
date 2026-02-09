@@ -90,7 +90,7 @@ func DecryptSecretsFile(inputFile string, outputFile string) error {
 	}
 	if strings.Contains(text, "ENVSYNC_UPDATED_AT=") {
 		decrypted := make([]string, 0)
-		linePattern := regexp.MustCompile(`^([A-Z_][A-Z0-9_]*)="(.*)"\s*#`)
+		linePattern := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)="(.*)"\s*#`)
 		for _, line := range strings.Split(text, "\n") {
 			if matches := linePattern.FindStringSubmatch(line); len(matches) > 0 {
 				dec, err := age.DecryptValue(matches[2])
