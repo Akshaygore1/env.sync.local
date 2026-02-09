@@ -368,7 +368,7 @@ cd src && go test ./...
 
 ## Version History & Roadmap
 
-### v2.0.0 (Current)
+### v2.0 (Current)
 - ✅ Complete rewrite in Go
 - ✅ Built-in AGE encryption (no external age binary needed)
 - ✅ Single static binary
