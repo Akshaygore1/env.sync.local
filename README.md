@@ -79,6 +79,20 @@ If you want to troubleshoot encryption manually, you can optionally install the 
 
 ### Installation
 
+**Quick Install (Web-based)**
+
+Download and install the latest release directly:
+
+```bash
+# Install to /usr/local/bin (requires sudo)
+curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | sudo bash
+
+# Or install to ~/.local/bin (user-only, no sudo)
+curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | bash -s -- --user
+```
+
+**Install from Source**
+
 ```bash
 # Clone or download the repository
 git clone https://github.com/championswimmer/env.sync.local.git
