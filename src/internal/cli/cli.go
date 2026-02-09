@@ -272,6 +272,8 @@ func runSync(args []string, usageName string, isClient bool) int {
 			opts.AllPeers = true
 		case "-f", "--force":
 			opts.Force = true
+		case "--force-pull":
+			opts.ForcePull = true
 		case "-q", "--quiet":
 			opts.Quiet = true
 		case "--insecure-http":
@@ -288,6 +290,7 @@ func runSync(args []string, usageName string, isClient bool) int {
 			fmt.Println("Options:")
 			fmt.Println("  -a, --all              Sync from all discovered peers")
 			fmt.Println("  -f, --force            Force sync even if local is newer")
+			fmt.Println("  --force-pull           Force overwrite all local secrets from specified host")
 			fmt.Println("  -q, --quiet            Quiet mode")
 			fmt.Println("  --insecure-http        Use insecure HTTP instead of SCP (not recommended)")
 			if isClient {
@@ -298,10 +301,12 @@ func runSync(args []string, usageName string, isClient bool) int {
 			if isClient {
 				fmt.Println("  env-sync-client                           # Sync from newest peer via SCP")
 				fmt.Println("  env-sync-client hostname.local            # Sync from specific host via SCP")
+				fmt.Println("  env-sync-client --force-pull hostname.local   # Force overwrite from specific host")
 				fmt.Println("  env-sync-client --insecure-http           # Sync using HTTP (INSECURE)")
 			} else {
 				fmt.Println("  env-sync sync                           # Sync via SCP (secure)")
 				fmt.Println("  env-sync sync mbp16.local               # Sync from specific host")
+				fmt.Println("  env-sync sync --force-pull mbp16.local  # Force overwrite from specific host")
 				fmt.Println("  env-sync sync --insecure-http           # Sync via HTTP (INSECURE)")
 			}
 			return 0
@@ -319,6 +324,12 @@ func runSync(args []string, usageName string, isClient bool) int {
 	}
 	if len(remaining) == 1 {
 		opts.TargetHost = remaining[0]
+	}
+
+	if opts.ForcePull && opts.TargetHost == "" {
+		logging.Log("ERROR", "--force-pull requires a specific hostname")
+		logging.Log("INFO", "Usage: env-sync sync --force-pull hostname.local")
+		return 1
 	}
 
 	if err := syncer.Run(opts); err != nil {

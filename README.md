@@ -128,6 +128,8 @@ That's it! The machines will automatically discover each other and sync encrypte
 ```bash
 # Sync (auto-decrypts if encrypted, re-encrypts to all recipients)
 env-sync
+env-sync sync mbp16.local                   # Sync from specific host
+env-sync sync --force-pull mbp16.local      # Force overwrite all local secrets from specific host
 
 # Key management
 env-sync key show                           # Show your public key
@@ -288,6 +290,30 @@ env-sync remove OLD_API_KEY
 # Changes are automatically backed up
 ls ~/.config/env-sync/backups/
 ```
+
+### Force Pull from a Specific Host
+
+Sometimes you want to completely overwrite your local secrets with those from a specific machine, ignoring timestamps and local changes. This is useful when:
+- You want to reset your local secrets to match a trusted source
+- You've made incorrect local changes and want to revert
+- You want to ensure exact consistency with a specific machine
+
+```bash
+# Force pull all secrets from a specific host (overwrites local)
+env-sync sync --force-pull nodeA.local
+
+# This will:
+# 1. Create a backup of your local secrets
+# 2. Download secrets from nodeA.local
+# 3. Completely overwrite local file (no merging)
+# 4. Ignore local timestamps and version comparisons
+```
+
+**Important Notes:**
+- Requires a specific hostname (won't work without it)
+- Creates a backup before overwriting (can restore with `env-sync restore`)
+- All local changes will be lost (replaced with remote values)
+- Use with caution - normal sync is safer as it merges changes
 
 ### Shell Integration
 
