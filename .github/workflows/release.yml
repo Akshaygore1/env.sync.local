@@ -32,11 +32,14 @@ jobs:
           mkdir -p dist
           cd src
 
-          # Windows x64
+          # Windows amd64
           GOOS=windows GOARCH=amd64 go build -o ../dist/env-sync-windows-amd64.exe -ldflags "-s -w" ./cmd/env-sync
 
           # Windows ARM64
           GOOS=windows GOARCH=arm64 go build -o ../dist/env-sync-windows-arm64.exe -ldflags "-s -w" ./cmd/env-sync
+
+          # macOS amd64
+          GOOS=darwin GOARCH=amd64 go build -o ../dist/env-sync-darwin-amd64 -ldflags "-s -w" ./cmd/env-sync
 
           # macOS ARM64
           GOOS=darwin GOARCH=arm64 go build -o ../dist/env-sync-darwin-arm64 -ldflags "-s -w" ./cmd/env-sync
@@ -44,7 +47,7 @@ jobs:
           # Linux ARM64
           GOOS=linux GOARCH=arm64 go build -o ../dist/env-sync-linux-arm64 -ldflags "-s -w" ./cmd/env-sync
 
-          # Linux AMD64
+          # Linux amd64
           GOOS=linux GOARCH=amd64 go build -o ../dist/env-sync-linux-amd64 -ldflags "-s -w" ./cmd/env-sync
 
       - name: Generate checksums
