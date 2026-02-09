@@ -56,7 +56,7 @@ get_timestamp() {
 generate_checksum() {
     local file="$1"
     if [[ -f "$file" ]]; then
-        sed 's/^# CHECKSUM: .*/# CHECKSUM: /' "$file" | sha256sum | cut -d' ' -f1
+        sed 's/^# CHECKSUM:.*$/# CHECKSUM: /' "$file" | sha256sum | cut -d' ' -f1
     else
         echo ""
     fi
@@ -72,7 +72,7 @@ extract_metadata() {
         return
     fi
 
-    grep "^# $key:" "$file" | head -1 | sed "s/^# $key: //"
+    grep "^# $key:" "$file" | head -1 | sed "s/^# $key:[[:space:]]*//"
 }
 
 # Get version from secrets file
@@ -251,7 +251,7 @@ init_secrets_file() {
 # TIMESTAMP: $timestamp
 # HOST: $hostname
 # MODIFIED: $timestamp
-# CHECKSUM:
+# CHECKSUM: 
 # === END_METADATA ===
 
 # Add your secrets below this line
@@ -269,7 +269,7 @@ EOF
 
     # Update checksum
     local checksum=$(generate_checksum "$file")
-    sed -i.bak "s/^# CHECKSUM: /# CHECKSUM: $checksum/" "$file"
+    sed -i.bak "s/^# CHECKSUM:.*$/# CHECKSUM: $checksum/" "$file"
     rm -f "$file.bak"
 
     log "SUCCESS" "Initialized secrets file: $file"
@@ -307,12 +307,12 @@ update_metadata() {
     rm -f "$file.bak"
 
     # Clear checksum before calculating new one
-    sed -i.bak "s/^# CHECKSUM: .*/# CHECKSUM: /" "$file"
+    sed -i.bak "s/^# CHECKSUM:.*$/# CHECKSUM: /" "$file"
     rm -f "$file.bak"
 
     # Update checksum
     local checksum=$(generate_checksum "$file")
-    sed -i.bak "s/^# CHECKSUM: .*/# CHECKSUM: $checksum/" "$file"
+    sed -i.bak "s/^# CHECKSUM:.*$/# CHECKSUM: $checksum/" "$file"
     rm -f "$file.bak"
 }
 
