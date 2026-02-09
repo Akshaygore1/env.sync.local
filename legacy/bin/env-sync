@@ -104,6 +104,10 @@ Commands:
 
   show <KEY>                Show value of a specific key
 
+  path [options]            Show paths to env-sync files
+    Options:
+      --backup             Show backup directory path
+
   cron [options]           Setup cron job for periodic sync
     Options:
       --install            Install cron job (30min interval)
@@ -773,6 +777,46 @@ cmd_list() {
     fi
 }
 
+# Path command - Show path to secrets file or backup directory
+cmd_path() {
+    local show_backup=false
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --backup)
+                show_backup=true
+                shift
+                ;;
+            --help)
+                echo "Usage: env-sync path [options]"
+                echo ""
+                echo "Show paths to env-sync files and directories."
+                echo ""
+                echo "Options:"
+                echo "  --backup    Show backup directory path"
+                echo ""
+                echo "Examples:"
+                echo "  env-sync path           # Show secrets file path"
+                echo "  env-sync path --backup  # Show backup directory path"
+                echo ""
+                echo "Usage in scripts:"
+                echo "  scp host:\$(env-sync path) /tmp/  # Copy secrets file"
+                exit 0
+                ;;
+            *)
+                log "ERROR" "Unknown option: $1"
+                exit 1
+                ;;
+        esac
+    done
+
+    if $show_backup; then
+        echo "$BACKUP_DIR"
+    else
+        echo "$SECRETS_FILE"
+    fi
+}
+
 # Route to appropriate command
 case "$COMMAND" in
     sync|s)
@@ -813,6 +857,9 @@ case "$COMMAND" in
         ;;
     show|get)
         cmd_show "$@"
+        ;;
+    path|p)
+        cmd_path "$@"
         ;;
     help|--help|-h)
         show_help

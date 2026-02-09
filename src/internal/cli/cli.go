@@ -103,6 +103,8 @@ func Run(argv []string) int {
 		return runList(args)
 	case "show", "get":
 		return runShow(args)
+	case "path", "p":
+		return runPath(args)
 	case "help", "--help", "-h":
 		showHelp()
 		return 0
@@ -198,6 +200,10 @@ Commands:
   list                     List all secret keys (values hidden)
 
   show <KEY>                Show value of a specific key
+
+  path [options]            Show paths to env-sync files
+    Options:
+      --backup             Show backup directory path
 
   cron [options]           Setup cron job for periodic sync
     Options:
@@ -988,6 +994,41 @@ func runLoad(args []string) int {
 		return 1
 	}
 
+	return 0
+}
+
+func runPath(args []string) int {
+	showBackup := false
+	for _, arg := range args {
+		switch arg {
+		case "--backup":
+			showBackup = true
+		case "--help":
+			fmt.Println("Usage: env-sync path [options]")
+			fmt.Println("")
+			fmt.Println("Show paths to env-sync files and directories.")
+			fmt.Println("")
+			fmt.Println("Options:")
+			fmt.Println("  --backup    Show backup directory path")
+			fmt.Println("")
+			fmt.Println("Examples:")
+			fmt.Println("  env-sync path           # Show secrets file path")
+			fmt.Println("  env-sync path --backup  # Show backup directory path")
+			fmt.Println("")
+			fmt.Println("Usage in scripts:")
+			fmt.Println("  scp host:$(env-sync path) /tmp/  # Copy secrets file")
+			return 0
+		default:
+			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", arg))
+			return 1
+		}
+	}
+
+	if showBackup {
+		fmt.Println(config.BackupDir())
+	} else {
+		fmt.Println(config.SecretsFile())
+	}
 	return 0
 }
 
