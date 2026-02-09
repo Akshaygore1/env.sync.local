@@ -165,13 +165,15 @@ fi
 echo "Installing files..."
 
 # Stop running service if it exists (for Go version only)
+SERVICE_WAS_STOPPED=false
 if [[ "$INSTALL_LEGACY" == "false" ]]; then
     # Check if env-sync is already installed and try to stop the service
     if command -v env-sync >/dev/null 2>&1; then
         echo "Checking for running service..."
         # Try to stop the service gracefully
-        env-sync service stop >/dev/null 2>&1 || true
-        SERVICE_WAS_STOPPED=$?
+        if env-sync service stop 2>&1 | grep -q "Service stopped"; then
+            SERVICE_WAS_STOPPED=true
+        fi
     fi
 fi
 
@@ -205,7 +207,7 @@ else
     chmod +x "$BIN_DIR/env-sync"
 
     # Restart service if it was stopped
-    if [[ -n "${SERVICE_WAS_STOPPED:-}" ]] && [[ "$SERVICE_WAS_STOPPED" -eq 0 ]]; then
+    if [[ "$SERVICE_WAS_STOPPED" == "true" ]]; then
         echo "Restarting service..."
         "$BIN_DIR/env-sync" service restart >/dev/null 2>&1 || {
             echo -e "${YELLOW}Note: Service was stopped but could not be restarted automatically${NC}"
