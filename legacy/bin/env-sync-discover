@@ -132,35 +132,61 @@ discover_avahi() {
 # Discover peers using dns-sd (macOS)
 discover_dnssd() {
     local timeout="$1"
-    
+
     if ! command -v dns-sd >/dev/null 2>&1; then
         log "ERROR" "dns-sd not found. This should be built into macOS."
         return 1
     fi
-    
+
     # Browse for env-sync services
+    # dns-sd -B is a monitoring command that doesn't exit, so we use timeout
     local results
     results=$(timeout "$timeout" dns-sd -B "$ENV_SYNC_SERVICE" local. 2>/dev/null || true)
-    
+
     if [[ -z "$results" ]]; then
         return 0
     fi
-    
+
     # Parse results
-    echo "$results" | grep -E "^\\+.*$ENV_SYNC_SERVICE" | while read -r line; do
-        local hostname=$(echo "$line" | awk '{print $NF}')
-        if [[ -n "$hostname" ]]; then
-            # Query for more info
-            local info
-            info=$(timeout 2 dns-sd -L "$hostname" "$ENV_SYNC_SERVICE" local. 2>/dev/null || true)
-            if [[ -n "$info" ]]; then
-                local target=$(echo "$info" | grep -E "^\\+" | awk '{print $7}')
-                if [[ -n "$target" ]]; then
-                    target="${target%.}"
-                    echo "$target"
-                fi
-            fi
+    # dns-sd -B output format:
+    # Timestamp     A/R    Flags  if Domain               Service Type         Instance Name
+    # 3:26:33.519  Add        3  14 local.               _envsync._tcp.       beelink
+    local -A seen_instances
+
+    echo "$results" | while read -r line; do
+        # Skip empty lines and headers
+        [[ -z "$line" ]] && continue
+        [[ "$line" =~ "Timestamp" ]] && continue
+        [[ "$line" =~ "STARTING" ]] && continue
+        [[ "$line" =~ "DATE:" ]] && continue
+
+        # Parse fields: timestamp, A/R, flags, if, domain, service_type, instance_name
+        local fields=($line)
+
+        # Need at least 7 fields
+        [[ ${#fields[@]} -lt 7 ]] && continue
+
+        # Check if this is an "Add" entry
+        [[ "${fields[1]}" != "Add" ]] && continue
+
+        # Service type should be at index 5
+        [[ "${fields[5]}" != "$ENV_SYNC_SERVICE" ]] && continue
+
+        # Instance name is the last field
+        local instance_name="${fields[-1]}"
+        [[ -z "$instance_name" ]] && continue
+
+        # Skip duplicates (use associative array)
+        [[ -n "${seen_instances[$instance_name]}" ]] && continue
+        seen_instances[$instance_name]=1
+
+        # Add .local suffix if not present
+        local hostname="$instance_name"
+        if [[ ! "$hostname" =~ \.local$ ]]; then
+            hostname="${hostname}.local"
         fi
+
+        echo "$hostname"
     done
 }
 
