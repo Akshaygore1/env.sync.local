@@ -23,6 +23,7 @@ import (
 type Options struct {
 	AllPeers     bool
 	Force        bool
+	ForcePull    bool
 	Quiet        bool
 	InsecureHTTP bool
 	TargetHost   string
@@ -47,7 +48,7 @@ func Run(opts Options) error {
 				return err
 			}
 		}
-		return syncFromHost(opts.TargetHost, opts.InsecureHTTP)
+		return syncFromHost(opts.TargetHost, opts.InsecureHTTP, opts.ForcePull)
 	}
 
 	if opts.AllPeers {
@@ -67,7 +68,7 @@ func Run(opts Options) error {
 					continue
 				}
 			}
-			if err := syncFromHost(peer, opts.InsecureHTTP); err == nil {
+			if err := syncFromHost(peer, opts.InsecureHTTP, opts.ForcePull); err == nil {
 				success++
 			}
 		}
@@ -92,7 +93,7 @@ func Run(opts Options) error {
 		return nil
 	}
 	logging.Log("INFO", "Newest secrets found on: "+newestHost)
-	return syncFromHost(newestHost, opts.InsecureHTTP)
+	return syncFromHost(newestHost, opts.InsecureHTTP, false)
 }
 
 // ReencryptLocal updates local secrets encryption when new recipients are added.
@@ -180,7 +181,7 @@ func fetchFromHost(host string, useHTTP bool) (string, error) {
 	return tmpPath, nil
 }
 
-func syncFromHost(host string, useHTTP bool) error {
+func syncFromHost(host string, useHTTP bool, forcePull bool) error {
 	remoteFile, err := fetchFromHost(host, useHTTP)
 	if err != nil {
 		return err
@@ -198,6 +199,20 @@ func syncFromHost(host string, useHTTP bool) error {
 	}
 
 	_ = backup.CreateBackup(config.SecretsFile())
+
+	if forcePull {
+		// Force pull: completely overwrite local file with remote file
+		logging.Log("INFO", "Force pulling all secrets from "+host+" (overwriting local)")
+		remoteContent, err := secrets.GetSecretsContent(remoteFile)
+		if err != nil {
+			return err
+		}
+		if err := secrets.SetSecretsContent(config.SecretsFile(), remoteContent); err != nil {
+			return err
+		}
+		logging.Log("SUCCESS", "Force pulled secrets from "+host)
+		return nil
+	}
 
 	localContent, _ := secrets.GetSecretsContent(config.SecretsFile())
 	remoteContent, _ := secrets.GetSecretsContent(remoteFile)
