@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Configuration
-ENV_SYNC_VERSION="1.0.1"
+ENV_SYNC_VERSION="1.0.2"
 ENV_SYNC_PORT="5739"
 ENV_SYNC_SERVICE="_envsync._tcp"
 ENV_SYNC_INIT_TIMESTAMP="${ENV_SYNC_INIT_TIMESTAMP:-1970-01-01T00:00:00Z}"
@@ -28,10 +28,10 @@ log() {
     shift
     local message="$*"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
+
     mkdir -p "$LOG_DIR"
     echo "[$timestamp] [$level] $message" >> "$LOG_DIR/env-sync.log"
-    
+
     if [[ "${ENV_SYNC_QUIET:-}" != "true" ]]; then
         case "$level" in
             ERROR) echo -e "${RED}ERROR:${NC} $message" >&2 ;;
@@ -66,12 +66,12 @@ generate_checksum() {
 extract_metadata() {
     local file="$1"
     local key="$2"
-    
+
     if [[ ! -f "$file" ]]; then
         echo ""
         return
     fi
-    
+
     grep "^# $key:" "$file" | head -1 | sed "s/^# $key: //"
 }
 
@@ -104,14 +104,14 @@ get_file_checksum() {
 compare_versions() {
     local v1="$1"
     local v2="$2"
-    
+
     if [[ "$v1" == "$v2" ]]; then
         return 0
     fi
-    
+
     # Use sort -V for version comparison
     local higher=$(printf '%s\n%s\n' "$v1" "$v2" | sort -V | tail -n1)
-    
+
     if [[ "$v1" == "$higher" ]]; then
         return 1  # v1 > v2
     else
@@ -124,15 +124,15 @@ compare_versions() {
 compare_timestamps() {
     local t1="$1"
     local t2="$2"
-    
+
     if [[ "$t1" == "$t2" ]]; then
         return 0
     fi
-    
+
     # Convert to seconds since epoch and compare
     local s1
     local s2
-    
+
     if date --version >/dev/null 2>&1; then
         # GNU date (Linux)
         s1=$(date -d "$t1" '+%s' 2>/dev/null || echo "0")
@@ -143,7 +143,7 @@ compare_timestamps() {
         s1=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$t1" "+%s" 2>/dev/null || echo "0")
         s2=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$t2" "+%s" 2>/dev/null || echo "0")
     fi
-    
+
     if [[ "$s1" -gt "$s2" ]]; then
         return 1  # t1 > t2
     else
@@ -156,14 +156,14 @@ compare_timestamps() {
 is_newer() {
     local file1="$1"
     local file2="$2"
-    
+
     local v1=$(get_file_version "$file1")
     local v2=$(get_file_version "$file2")
     local t1=$(get_file_timestamp "$file1")
     local t2=$(get_file_timestamp "$file2")
     local h1=$(get_file_host "$file1")
     local h2=$(get_file_host "$file2")
-    
+
     # Compare timestamps first
     if [[ -n "$t1" && -n "$t2" ]]; then
         compare_timestamps "$t1" "$t2"
@@ -174,7 +174,7 @@ is_newer() {
             return 1  # file2 is newer
         fi
     fi
-    
+
     # Timestamps equal, compare versions
     if [[ -n "$v1" && -n "$v2" ]]; then
         compare_versions "$v1" "$v2"
@@ -185,7 +185,7 @@ is_newer() {
             return 1  # file2 is newer
         fi
     fi
-    
+
     # Both equal, use hostname as tiebreaker (deterministic)
     if [[ "$h1" < "$h2" ]]; then
         return 0
@@ -197,13 +197,13 @@ is_newer() {
 # Create backup of secrets file
 create_backup() {
     local file="$1"
-    
+
     if [[ ! -f "$file" ]]; then
         return
     fi
-    
+
     mkdir -p "$BACKUP_DIR"
-    
+
     # Rotate backups
     for i in $(seq $((MAX_BACKUPS - 1)) -1 1); do
         local j=$((i + 1))
@@ -211,11 +211,11 @@ create_backup() {
             mv "$BACKUP_DIR/secrets.backup.$i" "$BACKUP_DIR/secrets.backup.$j"
         fi
     done
-    
+
     # Create new backup
     cp "$file" "$BACKUP_DIR/secrets.backup.1"
     chmod 600 "$BACKUP_DIR/secrets.backup.1"
-    
+
     log "INFO" "Created backup: secrets.backup.1"
 }
 
@@ -223,12 +223,12 @@ create_backup() {
 restore_backup() {
     local backup_num="${1:-1}"
     local backup_file="$BACKUP_DIR/secrets.backup.$backup_num"
-    
+
     if [[ ! -f "$backup_file" ]]; then
         log "ERROR" "Backup $backup_num not found"
         return 1
     fi
-    
+
     create_backup "$SECRETS_FILE"
     cp "$backup_file" "$SECRETS_FILE"
     chmod 600 "$SECRETS_FILE"
@@ -242,16 +242,16 @@ init_secrets_file() {
     local hostname=$(get_hostname)
     local timestamp="$init_timestamp"
     local version="1.0.0"
-    
+
     mkdir -p "$(dirname "$file")"
-    
+
     cat > "$file" << EOF
 # === ENV_SYNC_METADATA ===
 # VERSION: $version
 # TIMESTAMP: $timestamp
 # HOST: $hostname
 # MODIFIED: $timestamp
-# CHECKSUM: 
+# CHECKSUM:
 # === END_METADATA ===
 
 # Add your secrets below this line
@@ -264,14 +264,14 @@ init_secrets_file() {
 # HOST: $hostname
 # === END_FOOTER ===
 EOF
-    
+
     chmod 600 "$file"
-    
+
     # Update checksum
     local checksum=$(generate_checksum "$file")
     sed -i.bak "s/^# CHECKSUM: /# CHECKSUM: $checksum/" "$file"
     rm -f "$file.bak"
-    
+
     log "SUCCESS" "Initialized secrets file: $file"
 }
 
@@ -279,17 +279,17 @@ EOF
 update_metadata() {
     local file="$1"
     local new_version="${2:-}"
-    
+
     if [[ ! -f "$file" ]]; then
         log "ERROR" "File not found: $file"
         return 1
     fi
-    
+
     local hostname=$(get_hostname)
     local timestamp=$(get_timestamp)
     local current_version=$(get_file_version "$file")
     local version="${new_version:-$current_version}"
-    
+
     # Update header
     sed -i.bak \
         -e "s/^# TIMESTAMP: .*/# TIMESTAMP: $timestamp/" \
@@ -297,7 +297,7 @@ update_metadata() {
         -e "s/^# MODIFIED: .*/# MODIFIED: $timestamp/" \
         "$file"
     rm -f "$file.bak"
-    
+
     # Update footer
     sed -i.bak \
         -e "s/^# VERSION: .*/# VERSION: $version/" \
@@ -305,11 +305,11 @@ update_metadata() {
         -e "s/^# HOST: .*/# HOST: $hostname/" \
         "$file"
     rm -f "$file.bak"
-    
+
     # Clear checksum before calculating new one
     sed -i.bak "s/^# CHECKSUM: .*/# CHECKSUM: /" "$file"
     rm -f "$file.bak"
-    
+
     # Update checksum
     local checksum=$(generate_checksum "$file")
     sed -i.bak "s/^# CHECKSUM: .*/# CHECKSUM: $checksum/" "$file"
@@ -319,23 +319,23 @@ update_metadata() {
 # Validate secrets file
 validate_secrets_file() {
     local file="$1"
-    
+
     if [[ ! -f "$file" ]]; then
         log "ERROR" "Secrets file not found: $file"
         return 1
     fi
-    
+
     # Check metadata exists
     if ! grep -q "^# === ENV_SYNC_METADATA ===" "$file"; then
         log "ERROR" "Invalid secrets file: missing metadata header"
         return 1
     fi
-    
+
     if ! grep -q "^# === ENV_SYNC_FOOTER ===" "$file"; then
         log "ERROR" "Invalid secrets file: missing metadata footer"
         return 1
     fi
-    
+
     # Validate checksum
     local stored_checksum=$(get_file_checksum "$file")
     if [[ -n "$stored_checksum" ]]; then
@@ -345,18 +345,18 @@ validate_secrets_file() {
             return 1
         fi
     fi
-    
+
     return 0
 }
 
 # Get secrets content (without metadata)
 get_secrets_content() {
     local file="$1"
-    
+
     if [[ ! -f "$file" ]]; then
         return
     fi
-    
+
     if grep -q "^# === END_METADATA ===" "$file"; then
         # Extract content between metadata header and footer
         awk '/^# === END_METADATA ===/{found=1; next} /^# === ENV_SYNC_FOOTER ===/{found=0} found' "$file"
@@ -370,29 +370,29 @@ get_secrets_content() {
 set_secrets_content() {
     local file="$1"
     local content="$2"
-    
+
     if [[ ! -f "$file" ]] || ! grep -q "^# === ENV_SYNC_METADATA ===" "$file"; then
         init_secrets_file "$file"
     fi
-    
+
     # Create temporary file
     local tmp_file=$(mktemp)
-    
+
     # Write header
     awk '/^# === ENV_SYNC_METADATA ===/,/^# === END_METADATA ===/' "$file" > "$tmp_file"
-    
+
     # Write content
     echo "" >> "$tmp_file"
     echo "$content" >> "$tmp_file"
     echo "" >> "$tmp_file"
-    
+
     # Write footer
     awk '/^# === ENV_SYNC_FOOTER ===/,/^# === END_FOOTER ===/' "$file" >> "$tmp_file"
-    
+
     # Move temp file to target
     mv "$tmp_file" "$file"
     chmod 600 "$file"
-    
+
     # Update metadata
     update_metadata "$file"
 }
@@ -431,24 +431,24 @@ check_age_installed() {
 # Generate AGE key pair
 generate_age_key() {
     init_age_dirs
-    
+
     if [[ -f "$AGE_KEY_FILE" ]]; then
         log "WARN" "AGE key already exists at $AGE_KEY_FILE"
         return 1
     fi
-    
+
     # Generate key
     age-keygen -o "$AGE_KEY_FILE" 2>/dev/null
     chmod 600 "$AGE_KEY_FILE"
-    
+
     # Extract public key
     local pubkey=$(age-keygen -y "$AGE_KEY_FILE" 2>/dev/null)
     echo "$pubkey" > "$AGE_PUBKEY_FILE"
     chmod 644 "$AGE_PUBKEY_FILE"
-    
+
     log "SUCCESS" "Generated AGE key pair"
     log "INFO" "Public key: $pubkey"
-    
+
     return 0
 }
 
@@ -472,12 +472,12 @@ is_file_encrypted() {
     if [[ ! -f "$file" ]]; then
         return 1
     fi
-    
+
     # Check metadata flag
     if grep -q "^# ENCRYPTED: true" "$file"; then
         return 0
     fi
-    
+
     return 1
 }
 
@@ -488,7 +488,7 @@ get_recipients_from_file() {
         echo ""
         return
     fi
-    
+
     local recipients=$(extract_metadata "$file" "RECIPIENTS")
     echo "$recipients"
 }
@@ -496,23 +496,23 @@ get_recipients_from_file() {
 # Check if local machine can decrypt file
 can_decrypt_file() {
     local file="$1"
-    
+
     if ! is_file_encrypted "$file"; then
         return 0  # Not encrypted = can "decrypt" (nothing to do)
     fi
-    
+
     if [[ ! -f "$AGE_KEY_FILE" ]]; then
         return 1  # No private key
     fi
-    
+
     local local_pubkey=$(get_local_age_pubkey)
     local recipients=$(get_recipients_from_file "$file")
-    
+
     # Check if local pubkey is in recipients
     if [[ "$recipients" == *"$local_pubkey"* ]]; then
         return 0
     fi
-    
+
     return 1
 }
 
@@ -521,7 +521,7 @@ can_decrypt_file() {
 decrypt_secrets_file() {
     local input_file="$1"
     local output_file="${2:-}"
-    
+
     # Check if it's the new format (implicit encryption)
     # If it has ENVSYNC_UPDATED_AT, it likely has encrypted values
     if grep -q "ENVSYNC_UPDATED_AT=" "$input_file"; then
@@ -548,10 +548,10 @@ $key=\"$dec_val\""
 $line"
             fi
         done < <(get_secrets_content "$input_file")
-        
+
         # Clean up initial newline
         decrypted_content="${decrypted_content:1}"
-        
+
         if [[ -n "$output_file" ]]; then
             echo "$decrypted_content" > "$output_file"
         else
@@ -569,12 +569,12 @@ $line"
         fi
         return 0
     fi
-    
+
     if ! can_decrypt_file "$input_file"; then
         log "ERROR" "Cannot decrypt file - not in recipient list"
         return 1
     fi
-    
+
     # Legacy format is no longer supported
     log "ERROR" "Legacy file format detected (full file encryption). Please re-initialize."
     return 1
@@ -713,13 +713,13 @@ merge_secrets_content() {
 # Get all known recipient pubkeys from cache
 get_all_known_recipients() {
     local recipients=()
-    
+
     # Add local pubkey
     local local_pubkey=$(get_local_age_pubkey)
     if [[ -n "$local_pubkey" ]]; then
         recipients+=("$local_pubkey")
     fi
-    
+
     # Add cached pubkeys from known_hosts
     if [[ -d "$AGE_KNOWN_HOSTS_DIR" ]]; then
         for pubkey_file in "$AGE_KNOWN_HOSTS_DIR"/*.pub; do
@@ -731,7 +731,7 @@ get_all_known_recipients() {
             fi
         done
     fi
-    
+
     printf '%s\n' "${recipients[@]}"
 }
 
@@ -739,22 +739,22 @@ get_all_known_recipients() {
 cache_peer_pubkey() {
     local hostname="$1"
     local pubkey="$2"
-    
+
     init_age_dirs
-    
+
     # Save to known_hosts
     echo "$pubkey" > "$AGE_KNOWN_HOSTS_DIR/$hostname.pub"
     chmod 644 "$AGE_KNOWN_HOSTS_DIR/$hostname.pub"
-    
+
     # Update cache metadata
     local cache_file="$AGE_CACHE_DIR/pubkey_cache.json"
     local timestamp=$(get_timestamp)
-    
+
     # Create cache if missing or empty
     if [[ ! -s "$cache_file" ]]; then
         echo '{}' > "$cache_file"
     fi
-    
+
     # Update cache using jq if available, otherwise use sed
     if command -v jq >/dev/null 2>&1; then
         local temp_cache=$(mktemp)
@@ -773,7 +773,7 @@ cache_peer_pubkey() {
         # Simple sed-based update (jq not available)
         log "DEBUG" "jq not available, skipping cache update"
     fi
-    
+
     chmod 600 "$cache_file"
 }
 
@@ -781,7 +781,7 @@ cache_peer_pubkey() {
 get_cached_pubkey() {
     local hostname="$1"
     local pubkey_file="$AGE_KNOWN_HOSTS_DIR/$hostname.pub"
-    
+
     if [[ -f "$pubkey_file" ]]; then
         cat "$pubkey_file"
     else
@@ -794,7 +794,7 @@ list_cached_peers() {
     if [[ ! -d "$AGE_KNOWN_HOSTS_DIR" ]]; then
         return
     fi
-    
+
     for pubkey_file in "$AGE_KNOWN_HOSTS_DIR"/*.pub; do
         if [[ -f "$pubkey_file" ]]; then
             local hostname=$(basename "$pubkey_file" .pub)
@@ -808,7 +808,7 @@ list_cached_peers() {
 remove_peer_pubkey() {
     local hostname="$1"
     local pubkey_file="$AGE_KNOWN_HOSTS_DIR/$hostname.pub"
-    
+
     if [[ -f "$pubkey_file" ]]; then
         rm -f "$pubkey_file"
         log "INFO" "Removed pubkey for $hostname"

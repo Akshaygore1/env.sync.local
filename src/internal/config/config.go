@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	Version              = "2.0.1"
+	Version              = "2.0.2"
 	DefaultPort          = "5739"
 	Service              = "_envsync._tcp"
 	DefaultInitTimestamp = "1970-01-01T00:00:00Z"
