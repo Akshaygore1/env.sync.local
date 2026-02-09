@@ -94,6 +94,13 @@ sudo ./install.sh
 sudo ./install.sh --legacy
 ```
 
+**Note**: The installation script automatically handles running services. If env-sync is running as a background service (via `env-sync serve -d`), the installer will:
+1. Stop the service before installation
+2. Replace the binary
+3. Restart the service automatically
+
+This ensures seamless upgrades without manual intervention.
+
 ### Initial Setup
 
 **On each machine:**
@@ -138,6 +145,11 @@ env-sync remove KEY                         # Remove a secret
 env-sync list                               # List all keys (values hidden)
 env-sync show KEY                           # Show value of specific key
 
+# Service management
+env-sync service stop                       # Stop the background service
+env-sync service restart                    # Restart the background service
+env-sync service uninstall                  # Uninstall the service completely
+
 # Other commands
 env-sync serve -d          # Start HTTP server as a background service (HTTP mode only)
 env-sync discover          # Find peers on network
@@ -155,6 +167,15 @@ env-sync --help            # Show full help
 
 - Linux (systemd user): `systemctl --user status env-sync` (logs: `journalctl --user -u env-sync`)
 - macOS (LaunchAgent): `launchctl print gui/$(id -u)/env-sync` (restart: `launchctl kickstart -k gui/$(id -u)/env-sync`)
+
+**Managing the service:**
+```bash
+env-sync service stop        # Stop the service
+env-sync service restart     # Restart the service
+env-sync service uninstall   # Remove the service completely
+```
+
+The service commands use the native OS service manager (systemd on Linux, launchd on macOS), ensuring proper lifecycle management across platforms.
 
 ### Adding a New Machine (Machine D joining A, B, C)
 
