@@ -22,6 +22,7 @@ import (
 	"envsync/internal/metadata"
 	"envsync/internal/secrets"
 	"envsync/internal/server"
+	svcmgr "envsync/internal/service"
 	syncer "envsync/internal/sync"
 	sshtransport "envsync/internal/transport/ssh"
 )
@@ -105,6 +106,8 @@ func Run(argv []string) int {
 		return runShow(args)
 	case "path", "p":
 		return runPath(args)
+	case "service", "svc":
+		return runServiceManagement(args)
 	case "help", "--help", "-h":
 		showHelp()
 		return 0
@@ -210,6 +213,12 @@ Commands:
       --install            Install cron job (30min interval)
       --remove             Remove cron job
       --show               Show current cron job
+
+  service [subcommand]     Manage env-sync background service
+    Subcommands:
+      stop                 Stop the running service
+      restart              Restart the service
+      uninstall            Uninstall the service completely
 
   help                     Show this help message
 
@@ -1578,4 +1587,84 @@ func truncate(value string, max int) string {
 		return value
 	}
 	return value[:max]
+}
+
+func runServiceManagement(args []string) int {
+	if len(args) == 0 {
+		showServiceHelp()
+		return 0
+	}
+
+	switch args[0] {
+	case "stop":
+		return runServiceStop()
+	case "restart":
+		return runServiceRestart()
+	case "uninstall":
+		return runServiceUninstall()
+	case "help", "--help", "-h":
+		showServiceHelp()
+		return 0
+	default:
+		logging.Log("ERROR", "Unknown subcommand: "+args[0])
+		showServiceHelp()
+		return 1
+	}
+}
+
+func runServiceStop() int {
+	wasStopped, err := svcmgr.StopIfRunning()
+	if err != nil {
+		logging.Log("ERROR", fmt.Sprintf("Failed to stop service: %v", err))
+		return 1
+	}
+	if wasStopped {
+		logging.Log("SUCCESS", "Service stopped")
+	} else {
+		logging.Log("INFO", "Service is not running")
+	}
+	return 0
+}
+
+func runServiceRestart() int {
+	_, err := svcmgr.StopIfRunning()
+	if err != nil {
+		logging.Log("ERROR", fmt.Sprintf("Failed to stop service: %v", err))
+		return 1
+	}
+	if err := svcmgr.RestartIfNeeded(true); err != nil {
+		logging.Log("ERROR", fmt.Sprintf("Failed to restart service: %v", err))
+		return 1
+	}
+	return 0
+}
+
+func runServiceUninstall() int {
+	wasUninstalled, err := svcmgr.UninstallIfInstalled()
+	if err != nil {
+		logging.Log("ERROR", fmt.Sprintf("Failed to uninstall service: %v", err))
+		return 1
+	}
+	if wasUninstalled {
+		logging.Log("SUCCESS", "Service uninstalled")
+	} else {
+		logging.Log("INFO", "Service is not installed")
+	}
+	return 0
+}
+
+func showServiceHelp() {
+	fmt.Print(`env-sync service - Manage env-sync background service
+
+Usage: env-sync service [subcommand]
+
+Subcommands:
+  stop         Stop the running service
+  restart      Restart the service
+  uninstall    Uninstall the service completely
+
+Note: The service is created when you run 'env-sync serve -d'
+      Use 'systemctl --user status env-sync' (Linux) or
+      'launchctl print gui/$(id -u)/env-sync' (macOS) to check status.
+`)
 }

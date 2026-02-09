@@ -164,6 +164,17 @@ fi
 # Install files
 echo "Installing files..."
 
+# Stop running service if it exists (for Go version only)
+if [[ "$INSTALL_LEGACY" == "false" ]]; then
+    # Check if env-sync is already installed and try to stop the service
+    if command -v env-sync >/dev/null 2>&1; then
+        echo "Checking for running service..."
+        # Try to stop the service gracefully
+        env-sync service stop >/dev/null 2>&1 || true
+        SERVICE_WAS_STOPPED=$?
+    fi
+fi
+
 if [[ "$INSTALL_LEGACY" == "true" ]]; then
     # Install legacy bash version
     cp "$SCRIPT_DIR/legacy/bin/env-sync" "$BIN_DIR/"
@@ -192,6 +203,15 @@ else
     # Install Go binary
     cp "$SCRIPT_DIR/target/env-sync" "$BIN_DIR/env-sync"
     chmod +x "$BIN_DIR/env-sync"
+
+    # Restart service if it was stopped
+    if [[ -n "${SERVICE_WAS_STOPPED:-}" ]] && [[ "$SERVICE_WAS_STOPPED" -eq 0 ]]; then
+        echo "Restarting service..."
+        "$BIN_DIR/env-sync" service restart >/dev/null 2>&1 || {
+            echo -e "${YELLOW}Note: Service was stopped but could not be restarted automatically${NC}"
+            echo "Run 'env-sync serve -d' to start the service manually"
+        }
+    fi
 fi
 
 # Create symlinks for older macOS compatibility
