@@ -91,17 +91,24 @@ func DecryptSecretsFile(inputFile string, outputFile string) error {
 	if strings.Contains(text, "ENVSYNC_UPDATED_AT=") {
 		decrypted := make([]string, 0)
 		linePattern := regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*)="(.*)"\s*#`)
+		failedKeys := make([]string, 0)
 		for _, line := range strings.Split(text, "\n") {
 			if matches := linePattern.FindStringSubmatch(line); len(matches) > 0 {
 				dec, err := age.DecryptValue(matches[2])
 				if err == nil {
 					decrypted = append(decrypted, fmt.Sprintf("%s=\"%s\"", matches[1], dec))
 				} else {
-					decrypted = append(decrypted, fmt.Sprintf("# Failed to decrypt %s", matches[1]))
+					if config.IsVerbose() {
+						logging.Log("ERROR", fmt.Sprintf("Failed to decrypt %s: %v", matches[1], err))
+					}
+					failedKeys = append(failedKeys, matches[1])
 				}
 			} else if strings.TrimSpace(line) != "" {
 				decrypted = append(decrypted, line)
 			}
+		}
+		if len(failedKeys) > 0 {
+			return fmt.Errorf("failed to decrypt %d secret(s): %s", len(failedKeys), strings.Join(failedKeys, ", "))
 		}
 		output := strings.Join(decrypted, "\n")
 		if outputFile != "" {
