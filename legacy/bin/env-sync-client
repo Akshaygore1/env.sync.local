@@ -128,11 +128,13 @@ test_ssh() {
 # Function to fetch from a single host using SCP
 fetch_via_scp() {
     local host="$1"
-    local remote_path="${host}:${SECRETS_FILE}"
+    # Always use .secrets.env without path prefix
+    # SCP command runs relative to home folder, so this will work regardless of where env-sync is installed
+    local remote_path="${host}:.secrets.env"
     local tmp_file=$(mktemp)
-    
+
     log "INFO" "Fetching from $host via SCP..."
-    
+
     # Fetch file with scp
     if ! scp -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new "$remote_path" "$tmp_file" </dev/null >/dev/null 2>&1; then
         log "WARN" "Failed to fetch from $host via SCP (SSH key may not be set up)"
