@@ -37,6 +37,10 @@ func TestCachePeerPubkeyCachesKey(t *testing.T) {
 
 	cachePeerPubkey("peer.local")
 
+	if _, err := os.Stat(config.AgeKnownHostsDir()); err != nil {
+		t.Fatalf("AgeKnownHostsDir() error = %v", err)
+	}
+
 	cachedPath := filepath.Join(config.AgeKnownHostsDir(), "peer.local.pub")
 	data, err := os.ReadFile(cachedPath)
 	if err != nil {
