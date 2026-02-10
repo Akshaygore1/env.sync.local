@@ -47,6 +47,7 @@ func Run(opts Options) error {
 				logging.Log("INFO", "Ensure SSH keys are set up, or use --insecure-http flag")
 				return err
 			}
+			cachePeerPubkey(opts.TargetHost)
 		}
 		return syncFromHost(opts.TargetHost, opts.InsecureHTTP, opts.ForcePull)
 	}
@@ -334,6 +335,23 @@ func maybeReencryptLocal() {
 	_ = os.Rename(tempPath, config.SecretsFile())
 	_ = os.Chmod(config.SecretsFile(), 0o600)
 	logging.Log("SUCCESS", "Re-encrypted local secrets with updated recipients")
+}
+
+func cachePeerPubkey(host string) {
+	pubkey := discovery.FetchPubkey(host)
+	if pubkey == "" {
+		logging.Log("WARN", "Could not fetch public key from "+host)
+		return
+	}
+	if !keys.ValidatePubkey(pubkey) {
+		logging.Log("WARN", "Invalid public key fetched from "+host)
+		return
+	}
+	if err := keys.CachePeerPubkey(host, pubkey); err != nil {
+		logging.Log("WARN", "Failed to cache public key from "+host)
+		return
+	}
+	logging.Log("SUCCESS", "Cached public key from "+host)
 }
 
 func reencryptSecrets(inputFile, outputFile string) error {

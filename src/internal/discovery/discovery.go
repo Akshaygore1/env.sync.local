@@ -251,6 +251,10 @@ func FetchHealth(host string) (HealthResponse, error) {
 	return httptransport.FetchHealth(host)
 }
 
+func FetchPubkey(host string) string {
+	return fetchPubkey(host)
+}
+
 func fetchPubkey(host string) string {
 	args := []string{"ssh", "-n", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=" + sshtransport.HostKeyCheckingMode(), host, "cat ~/.config/env-sync/keys/age_key.pub"}
 	logging.LogCommand(args...)
