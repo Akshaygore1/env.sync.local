@@ -236,7 +236,7 @@ func syncFromHost(host string, useHTTP bool, forcePull bool) error {
 			return err
 		}
 		if err := refreshPublicKeysMetadata(config.SecretsFile()); err != nil {
-			logging.Log("WARN", "Failed to update PUBLIC_KEYS metadata")
+			logging.Log("WARN", "Failed to update PUBLIC_KEYS metadata: "+err.Error())
 		}
 		logging.Log("SUCCESS", "Force pulled secrets from "+host)
 		return nil
@@ -250,7 +250,7 @@ func syncFromHost(host string, useHTTP bool, forcePull bool) error {
 		return err
 	}
 	if err := refreshPublicKeysMetadata(config.SecretsFile()); err != nil {
-		logging.Log("WARN", "Failed to update PUBLIC_KEYS metadata")
+		logging.Log("WARN", "Failed to update PUBLIC_KEYS metadata: "+err.Error())
 	}
 
 	logging.Log("SUCCESS", "Synced and merged secrets from "+host)
