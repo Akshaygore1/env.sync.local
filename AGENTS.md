@@ -223,7 +223,7 @@ MAX_BACKUPS = 5
 # HOST: beelink.local
 # MODIFIED: 2025-02-08T15:30:45Z
 # ENCRYPTED: true
-# RECIPIENTS: age1xyz...,age1abc...,age1def...
+# PUBLIC_KEYS: beelink.local:age1xyz...,mbp16.local:age1abc...,nuc.local:age1def...
 # === END_METADATA ===
 
 OPENAI_API_KEY="YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+..." # ENVSYNC_UPDATED_AT=2025-02-08T15:30:45Z

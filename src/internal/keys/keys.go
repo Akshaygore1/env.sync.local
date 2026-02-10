@@ -14,7 +14,6 @@ import (
 	"envsync/internal/config"
 	"envsync/internal/crypto/age"
 	"envsync/internal/logging"
-	"envsync/internal/metadata"
 	"envsync/internal/secrets"
 )
 
@@ -64,36 +63,31 @@ func IsFileEncrypted(file string) bool {
 	return strings.Contains(string(content), "# ENCRYPTED: true")
 }
 
-func GetRecipientsFromFile(file string) string {
+func GetRecipientsFromFile(file string) []string {
 	if !IsFileEncrypted(file) {
-		return ""
+		return nil
 	}
-	return metadata.ExtractMetadata(file, "RECIPIENTS")
+	publicKeys := ExtractPublicKeysFromFile(file)
+	if len(publicKeys) == 0 {
+		return nil
+	}
+	recipients := make([]string, 0, len(publicKeys))
+	for _, pubkey := range publicKeys {
+		if pubkey != "" {
+			recipients = append(recipients, pubkey)
+		}
+	}
+	sort.Strings(recipients)
+	return recipients
 }
 
-func RecipientsContain(recipients string, target string) bool {
-	for _, recipient := range parseRecipients(recipients) {
+func RecipientsContain(recipients []string, target string) bool {
+	for _, recipient := range recipients {
 		if recipient == target {
 			return true
 		}
 	}
 	return false
-}
-
-func parseRecipients(recipients string) []string {
-	if recipients == "" {
-		return nil
-	}
-	parts := strings.Split(recipients, ",")
-	parsed := make([]string, 0, len(parts))
-	for _, part := range parts {
-		trimmed := strings.TrimSpace(part)
-		if trimmed == "" {
-			continue
-		}
-		parsed = append(parsed, trimmed)
-	}
-	return parsed
 }
 
 func CanDecryptFile(file string) bool {

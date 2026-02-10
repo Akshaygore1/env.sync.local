@@ -435,8 +435,7 @@ func reencryptSecrets(inputFile, outputFile string) error {
 		return err
 	}
 
-	recipientsStr := strings.Join(recipients, ",")
-	if err := metadata.EnsureEncryptedMetadata(outputFile, secrets.GetHostname(), recipientsStr); err != nil {
+	if err := metadata.EnsureEncryptedMetadata(outputFile, secrets.GetHostname()); err != nil {
 		return err
 	}
 

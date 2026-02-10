@@ -50,7 +50,7 @@ func TestDecryptSecretsFile_FailsOnInvalidEncryption(t *testing.T) {
 # HOST: remote.local
 # MODIFIED: 2025-02-08T15:30:45Z
 # ENCRYPTED: true
-# RECIPIENTS: ` + remotePubkey + `
+# PUBLIC_KEYS: remote.local:` + remotePubkey + `
 # === END_METADATA ===
 
 OPENAI_API_KEY="` + value1 + `" # ENVSYNC_UPDATED_AT=2025-02-08T15:30:45Z
@@ -111,7 +111,7 @@ func TestDecryptSecretsFile_SucceedsWithCorrectKey(t *testing.T) {
 # HOST: local.local
 # MODIFIED: 2025-02-08T15:30:45Z
 # ENCRYPTED: true
-# RECIPIENTS: ` + pubkey + `
+# PUBLIC_KEYS: local.local:` + pubkey + `
 # === END_METADATA ===
 
 OPENAI_API_KEY="` + value1 + `" # ENVSYNC_UPDATED_AT=2025-02-08T15:30:45Z
@@ -150,8 +150,8 @@ DATABASE_URL="` + value2 + `" # ENVSYNC_UPDATED_AT=2025-02-08T14:20:10Z
 	}
 }
 
-func TestRecipientsContain_UsesCommaDelimitedMatches(t *testing.T) {
-	recipients := "age1abc123, age1def456"
+func TestRecipientsContain_UsesRecipientMatches(t *testing.T) {
+	recipients := []string{"age1abc123", "age1def456"}
 
 	if !RecipientsContain(recipients, "age1def456") {
 		t.Fatal("RecipientsContain() expected true for exact recipient match")

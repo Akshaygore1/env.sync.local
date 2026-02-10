@@ -548,8 +548,11 @@ func runInit(args []string) int {
 
 	if encrypted {
 		pubkey := keys.GetLocalPubkey()
-		recipients := pubkey
-		if err := metadata.EnsureEncryptedMetadata(config.SecretsFile(), secrets.GetHostname(), recipients); err != nil {
+		if err := metadata.EnsureEncryptedMetadata(config.SecretsFile(), secrets.GetHostname()); err != nil {
+			return 1
+		}
+		publicKeys := keys.GetAllKnownPublicKeys()
+		if err := metadata.EnsurePublicKeysMetadata(config.SecretsFile(), publicKeys); err != nil {
 			return 1
 		}
 		if err := secrets.UpdateMetadata(config.SecretsFile(), ""); err != nil {
@@ -617,7 +620,11 @@ func handleEncryptExisting() int {
 		return 1
 	}
 
-	if err := metadata.EnsureEncryptedMetadata(config.SecretsFile(), secrets.GetHostname(), pubkey); err != nil {
+	if err := metadata.EnsureEncryptedMetadata(config.SecretsFile(), secrets.GetHostname()); err != nil {
+		return 1
+	}
+	publicKeys := keys.GetAllKnownPublicKeys()
+	if err := metadata.EnsurePublicKeysMetadata(config.SecretsFile(), publicKeys); err != nil {
 		return 1
 	}
 
@@ -719,8 +726,7 @@ func runAdd(args []string) int {
 			logging.Log("ERROR", "Cannot modify encrypted file - you don't have access")
 			return 1
 		}
-		recipientsStr := keys.GetRecipientsFromFile(config.SecretsFile())
-		recipients := strings.Split(recipientsStr, ",")
+		recipients := keys.GetRecipientsFromFile(config.SecretsFile())
 		encrypted, err := keys.EncryptValue(value, recipients)
 		if err != nil {
 			logging.Log("ERROR", "Failed to encrypt value")
