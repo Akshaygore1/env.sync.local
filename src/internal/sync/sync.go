@@ -310,7 +310,7 @@ func maybeReencryptLocal() {
 
 	missing := false
 	for _, recipient := range allRecipients {
-		if !strings.Contains(recipientsInFile, recipient) {
+		if !keys.RecipientsContain(recipientsInFile, recipient) {
 			missing = true
 			break
 		}

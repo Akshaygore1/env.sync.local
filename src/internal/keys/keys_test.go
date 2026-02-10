@@ -149,3 +149,15 @@ DATABASE_URL="` + value2 + `" # ENVSYNC_UPDATED_AT=2025-02-08T14:20:10Z
 		t.Errorf("Decrypted content missing DATABASE_URL, got: %s", decryptedStr)
 	}
 }
+
+func TestRecipientsContain_UsesCommaDelimitedMatches(t *testing.T) {
+	recipients := "age1abc123, age1def456"
+
+	if !RecipientsContain(recipients, "age1def456") {
+		t.Fatal("RecipientsContain() expected true for exact recipient match")
+	}
+
+	if RecipientsContain(recipients, "age1abc") {
+		t.Fatal("RecipientsContain() expected false for substring match")
+	}
+}
