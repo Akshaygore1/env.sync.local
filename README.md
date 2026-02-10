@@ -218,7 +218,7 @@ env-sync
 
 **What happens:**
 1. D generates its AGE key pair
-2. D SSHes into beelink.local and adds its pubkey to the public key list
+2. D SSHes into beelink.local and adds its AGE public key to the public key list
 3. beelink.local re-encrypts secrets to include D
 4. D syncs and can now decrypt the secrets
 
@@ -366,7 +366,7 @@ DATABASE_URL="YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOS..." # ENVSYNC_UPDATED_A
 ```
 
 **Metadata stays plaintext** (for discovery/versioning).
-**Keys are plaintext**, but **values are individually encrypted** using AGE.
+**Public keys are AGE keys** (not SSH keys), and **values are individually encrypted** using AGE.
 Timestamps track when each key was last updated for granular merging.
 
 ## How It Works
