@@ -107,7 +107,7 @@ func EnsureEncryptedMetadata(file string, hostname string) error {
 			output = append(output, line)
 			continue
 		}
-		if inMetadata && (strings.HasPrefix(line, "# ENCRYPTED:") || strings.HasPrefix(line, "# RECIPIENTS:") || strings.HasPrefix(line, "# PUBLIC_KEYS:")) {
+		if inMetadata && (strings.HasPrefix(line, "# ENCRYPTED:") || strings.HasPrefix(line, "# RECIPIENTS:")) {
 			continue
 		}
 		if inMetadata && strings.HasPrefix(line, "# HOST:") {

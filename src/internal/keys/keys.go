@@ -14,6 +14,7 @@ import (
 	"envsync/internal/config"
 	"envsync/internal/crypto/age"
 	"envsync/internal/logging"
+	"envsync/internal/metadata"
 	"envsync/internal/secrets"
 )
 
@@ -68,14 +69,14 @@ func GetRecipientsFromFile(file string) []string {
 		return nil
 	}
 	publicKeys := ExtractPublicKeysFromFile(file)
-	if len(publicKeys) == 0 {
-		return nil
-	}
 	recipients := make([]string, 0, len(publicKeys))
 	for _, pubkey := range publicKeys {
 		if pubkey != "" {
 			recipients = append(recipients, pubkey)
 		}
+	}
+	if len(recipients) == 0 {
+		recipients = parseRecipients(metadata.ExtractMetadata(file, "RECIPIENTS"))
 	}
 	sort.Strings(recipients)
 	return recipients
@@ -88,6 +89,22 @@ func RecipientsContain(recipients []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func parseRecipients(recipients string) []string {
+	if recipients == "" {
+		return nil
+	}
+	parts := strings.Split(recipients, ",")
+	parsed := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		parsed = append(parsed, trimmed)
+	}
+	return parsed
 }
 
 func CanDecryptFile(file string) bool {
@@ -339,12 +356,7 @@ func CachePublicKeysFromFile(file string) error {
 }
 
 func getLocalHostname() string {
-	// Try to get hostname from secrets module (it has the same logic)
-	hostname, _ := os.Hostname()
-	if hostname == "" {
-		hostname = "unknown"
-	}
-	return hostname
+	return secrets.GetHostname()
 }
 
 func ValidatePubkey(pubkey string) bool {

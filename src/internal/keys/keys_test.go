@@ -3,6 +3,7 @@ package keys
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -159,5 +160,34 @@ func TestRecipientsContain_UsesRecipientMatches(t *testing.T) {
 
 	if RecipientsContain(recipients, "age1abc") {
 		t.Fatal("RecipientsContain() expected false for substring match")
+	}
+}
+
+func TestGetRecipientsFromFile_LegacyRecipientsFallback(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "secrets.env")
+	content := `# === ENV_SYNC_METADATA ===
+# VERSION: 2.0.0
+# TIMESTAMP: 2025-02-08T15:30:45Z
+# HOST: legacy.local
+# MODIFIED: 2025-02-08T15:30:45Z
+# ENCRYPTED: true
+# RECIPIENTS: age1abc123, age1def456
+# === END_METADATA ===
+
+FOO="bar" # ENVSYNC_UPDATED_AT=2025-02-08T15:30:45Z
+
+# === ENV_SYNC_FOOTER ===
+# VERSION: 2.0.0
+# TIMESTAMP: 2025-02-08T15:30:45Z
+# HOST: legacy.local
+# === END_FOOTER ===`
+	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	got := GetRecipientsFromFile(file)
+	want := []string{"age1abc123", "age1def456"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("GetRecipientsFromFile() = %v, want %v", got, want)
 	}
 }
