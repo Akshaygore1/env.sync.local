@@ -348,13 +348,13 @@ sudo make install
 ### Testing
 ```bash
 # Run all integration tests (Go + legacy)
-./test-dockers.sh
+./tests/test-dockers.sh
 
 # Run Go-only tests
-ENV_SYNC_USE_BASH=false ./test-dockers.sh
+ENV_SYNC_USE_BASH=false ./tests/test-dockers.sh
 
 # Run legacy bash-only tests
-ENV_SYNC_SKIP_GO_BUILD=true ENV_SYNC_USE_BASH=true ./test-dockers.sh --skip-go-build
+ENV_SYNC_SKIP_GO_BUILD=true ENV_SYNC_USE_BASH=true ./tests/test-dockers.sh --skip-go-build
 
 # Run Go unit tests
 cd src && go test ./...

@@ -17,7 +17,7 @@ The tests spin up 3 Docker containers (alpha, beta, gamma) that simulate a distr
 From the project root:
 
 ```bash
-./test-dockers.sh
+./tests/test-dockers.sh
 ```
 
 Tests set `ENV_SYNC_DISCOVERY_TIMEOUT=2` inside containers to keep discovery waits short. Override it by exporting a different value before running the tests.
@@ -36,7 +36,7 @@ This will:
 ### Start Test Environment for Manual Testing
 
 ```bash
-./start-test-env.sh
+./tests/start-test-env.sh
 ```
 
 This starts the containers and leaves them running for manual exploration.
@@ -50,17 +50,17 @@ docker exec -it env-sync-gamma bash
 
 Stop the environment:
 ```bash
-./start-test-env.sh --stop
+./tests/start-test-env.sh --stop
 ```
 
 ### Run Specific Tests
 
 ```bash
 # Run only tests matching "basic"
-./test-dockers.sh --filter basic
+./tests/test-dockers.sh --filter basic
 
 # Run tests without cleanup (for debugging)
-./test-dockers.sh --no-cleanup
+./tests/test-dockers.sh --no-cleanup
 ```
 
 ## Test Structure
@@ -217,7 +217,7 @@ docker exec env-sync-alpha getent hosts beta.local
 ### Run Tests With Debug Output
 
 ```bash
-./test-dockers.sh --no-cleanup
+./tests/test-dockers.sh --no-cleanup
 # Then inspect containers manually
 ```
 
@@ -228,7 +228,7 @@ The tests can run in CI/CD pipelines:
 ```yaml
 # Example GitHub Actions workflow
 - name: Run Docker tests
-  run: ./test-dockers.sh
+  run: ./tests/test-dockers.sh
 ```
 
 Requirements:
@@ -242,7 +242,7 @@ Requirements:
 2. Load the helper: `load 'test_helper'`
 3. Use `@test` blocks with descriptive names
 4. Use helper functions from `test_helper.bash`
-5. Run with `./test-dockers.sh --filter your_pattern`
+5. Run with `./tests/test-dockers.sh --filter your_pattern`
 
 Example:
 

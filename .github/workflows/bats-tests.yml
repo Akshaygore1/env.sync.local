@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install BATS via NPM
         run: npm install -g bats
@@ -39,16 +39,16 @@ jobs:
         env:
           ENV_SYNC_SKIP_GO_BUILD: "true"
           ENV_SYNC_USE_BASH: "true"
-        run: ./test-dockers.sh --skip-go-build --debug
+        run: ./tests/test-dockers.sh --skip-go-build --debug
 
       - name: Verify Version (Bash)
         env:
           ENV_SYNC_SKIP_GO_BUILD: "true"
           ENV_SYNC_USE_BASH: "true"
         run: |
-          ./start-test-env.sh
+          ./tests/start-test-env.sh
           docker exec -e ENV_SYNC_USE_BASH=true env-sync-alpha env-sync --version
-          ./start-test-env.sh --stop 
+          ./tests/start-test-env.sh --stop
 
   go-tests:
     runs-on: ubuntu-latest
@@ -71,16 +71,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
 
       - name: Go Tests
         run: make test
 
       - name: Run Docker Tests (Go)
-        run: ./test-dockers.sh --debug
+        run: ./tests/test-dockers.sh --debug
 
       - name: Verify Version (Go)
         run: |
-          ./start-test-env.sh
+          ./tests/start-test-env.sh
           docker exec env-sync-alpha env-sync --version
-          ./start-test-env.sh --stop 
+          ./tests/start-test-env.sh --stop

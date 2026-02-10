@@ -5,7 +5,7 @@
 # This script starts the test containers without running tests,
 # allowing you to manually explore and debug the environment.
 #
-# Usage: ./start-test-env.sh
+# Usage: ./tests/start-test-env.sh
 #   --clean     Clean up existing containers and start fresh
 #   --stop      Stop the test environment
 #
@@ -157,5 +157,5 @@ echo "  # View logs"
 echo "  docker logs env-sync-alpha -f"
 echo ""
 echo "To stop the environment:"
-echo "  ./start-test-env.sh --stop"
+echo "  ./tests/start-test-env.sh --stop"
 echo ""

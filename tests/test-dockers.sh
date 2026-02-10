@@ -5,7 +5,7 @@
 # This script sets up bats-core and runs all Docker-based integration tests
 # to verify env-sync functionality across multiple containers.
 #
-# Usage: ./test-dockers.sh [options]
+# Usage: ./tests/test-dockers.sh [options]
 #   --no-cleanup    Keep containers running after tests (for debugging)
 #   --setup-only    Only setup the test environment, don't run tests
 #   --debug         Enable debug mode (print outputs of failures)
@@ -87,7 +87,7 @@ done
 if [ $SHOW_HELP -eq 1 ]; then
     echo "env-sync Docker Integration Tests"
     echo ""
-    echo "Usage: ./test-dockers.sh [options]"
+    echo "Usage: ./tests/test-dockers.sh [options]"
     echo ""
     echo "Options:"
     echo "  --no-cleanup      Keep containers running after tests (for debugging)"
@@ -98,11 +98,11 @@ if [ $SHOW_HELP -eq 1 ]; then
     echo "  --help, -h        Show this help message"
     echo ""
     echo "Examples:"
-    echo "  ./test-dockers.sh                                    # Run all tests"
-    echo "  ./test-dockers.sh --no-cleanup                       # Run tests, keep containers"
-    echo "  ./test-dockers.sh --filter basic                     # Run only basic sync tests"
-    echo "  ./test-dockers.sh --formatter tap                    # Run tests with TAP output"
-    echo "  ./test-dockers.sh --setup-only                       # Just setup, then exit"
+    echo "  ./tests/test-dockers.sh                              # Run all tests"
+    echo "  ./tests/test-dockers.sh --no-cleanup                 # Run tests, keep containers"
+    echo "  ./tests/test-dockers.sh --filter basic               # Run only basic sync tests"
+    echo "  ./tests/test-dockers.sh --formatter tap              # Run tests with TAP output"
+    echo "  ./tests/test-dockers.sh --setup-only                 # Just setup, then exit"
     echo ""
     exit 0
 fi
@@ -263,7 +263,7 @@ setup_environment
 if [ $SETUP_ONLY -eq 1 ]; then
     print_info "Setup complete (--setup-only mode)"
     print_info "Test environment is ready. Containers are not running."
-    print_info "To run tests, execute: ./test-dockers.sh"
+    print_info "To run tests, execute: ./tests/test-dockers.sh"
     exit 0
 fi
 
