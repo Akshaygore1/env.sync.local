@@ -203,6 +203,10 @@ func discoverDnssd(timeout time.Duration) ([]string, error) {
 	// Always wait for the process to clean up
 	_ = cmd.Wait()
 
+	return parseDnssdPeers(output), nil
+}
+
+func parseDnssdPeers(output string) []string {
 	// dns-sd -B output format:
 	// Timestamp     A/R    Flags  if Domain               Service Type         Instance Name
 	// 3:26:33.519  Add        3  14 local.               _envsync._tcp.       beelink
@@ -211,36 +215,30 @@ func discoverDnssd(timeout time.Duration) ([]string, error) {
 	instanceNames := make(map[string]bool)
 
 	for _, line := range lines {
-		// Skip empty lines and headers
 		if line == "" || strings.Contains(line, "Timestamp") || strings.Contains(line, "STARTING") || strings.Contains(line, "DATE:") {
 			continue
 		}
 
 		fields := strings.Fields(line)
-		// Expected format: timestamp, "Add"/"Rmv", flags, interface, domain, service_type, instance_name
-		// We need at least 7 fields
 		if len(fields) < 7 {
 			continue
 		}
 
-		// Check if this is an "Add" entry for our service
 		if fields[1] != "Add" {
 			continue
 		}
 
-		// Service type should be at index 5
-		if fields[5] != config.Service {
+		serviceType := strings.TrimSuffix(fields[5], ".")
+		if serviceType != config.Service {
 			continue
 		}
 
-		// Instance name is the last field
 		instanceName := fields[len(fields)-1]
 		if instanceName == "" || instanceNames[instanceName] {
 			continue
 		}
 		instanceNames[instanceName] = true
 
-		// Add .local suffix if not present
 		hostname := instanceName
 		if !strings.HasSuffix(hostname, ".local") {
 			hostname = hostname + ".local"
@@ -249,7 +247,7 @@ func discoverDnssd(timeout time.Duration) ([]string, error) {
 		peers = append(peers, hostname)
 	}
 
-	return peers, nil
+	return peers
 }
 
 func discoverFallback(timeout time.Duration) ([]string, error) {
