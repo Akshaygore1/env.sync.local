@@ -32,7 +32,7 @@ func FetchViaSCP(host string, remotePath string, dest string) error {
 // in their known_hosts directory, and triggers re-encryption so the remote
 // secrets include this machine as a recipient.
 func RegisterPubkeyWithPeer(host string, localPubkey string, localHostname string) error {
-	script := `mkdir -p ~/.config/env-sync/keys/known_hosts && printf %s "$1" > ~/.config/env-sync/keys/known_hosts/$2.pub && env-sync 2>/dev/null || true && echo 'ENVSYNC_REGISTER_SUCCESS'`
+	script := `mkdir -p ~/.config/env-sync/keys/known_hosts && printf '%s' "$1" > ~/.config/env-sync/keys/known_hosts/$2.pub && env-sync 2>/dev/null || true && echo 'ENVSYNC_REGISTER_SUCCESS'`
 	args := []string{
 		"ssh",
 		"-o", "BatchMode=yes",
