@@ -348,7 +348,7 @@ func cachePeerPubkey(host string) {
 		return
 	}
 	if err := keys.CachePeerPubkey(host, pubkey); err != nil {
-		logging.Log("WARN", "Failed to cache public key from "+host+": "+err.Error())
+		logging.Log("WARN", fmt.Sprintf("Failed to cache public key from %s: %v", host, err))
 		return
 	}
 	logging.Log("SUCCESS", "Cached public key from "+host)
