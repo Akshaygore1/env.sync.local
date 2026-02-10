@@ -71,6 +71,31 @@ func GetRecipientsFromFile(file string) string {
 	return metadata.ExtractMetadata(file, "RECIPIENTS")
 }
 
+func RecipientsContain(recipients string, target string) bool {
+	for _, recipient := range parseRecipients(recipients) {
+		if recipient == target {
+			return true
+		}
+	}
+	return false
+}
+
+func parseRecipients(recipients string) []string {
+	if recipients == "" {
+		return nil
+	}
+	parts := strings.Split(recipients, ",")
+	parsed := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		parsed = append(parsed, trimmed)
+	}
+	return parsed
+}
+
 func CanDecryptFile(file string) bool {
 	if !IsFileEncrypted(file) {
 		return true
@@ -80,7 +105,7 @@ func CanDecryptFile(file string) bool {
 	}
 	localPubkey := GetLocalPubkey()
 	recipients := GetRecipientsFromFile(file)
-	return strings.Contains(recipients, localPubkey)
+	return RecipientsContain(recipients, localPubkey)
 }
 
 func DecryptSecretsFile(inputFile string, outputFile string) error {
