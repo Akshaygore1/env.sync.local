@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -87,7 +88,7 @@ func EnsureEncryptedMetadata(file string, hostname string, recipients string) er
 	}
 
 	lines := strings.Split(string(content), "\n")
-	output := make([]string, 0, len(lines)+2)
+	output := make([]string, 0, len(lines)+3)
 	inMetadata := false
 	inserted := false
 
@@ -107,7 +108,7 @@ func EnsureEncryptedMetadata(file string, hostname string, recipients string) er
 			output = append(output, line)
 			continue
 		}
-		if inMetadata && (strings.HasPrefix(line, "# ENCRYPTED:") || strings.HasPrefix(line, "# RECIPIENTS:")) {
+		if inMetadata && (strings.HasPrefix(line, "# ENCRYPTED:") || strings.HasPrefix(line, "# RECIPIENTS:") || strings.HasPrefix(line, "# PUBLIC_KEYS:")) {
 			continue
 		}
 		if inMetadata && strings.HasPrefix(line, "# HOST:") {
@@ -115,6 +116,65 @@ func EnsureEncryptedMetadata(file string, hostname string, recipients string) er
 			if !inserted {
 				output = append(output, "# ENCRYPTED: true")
 				output = append(output, "# RECIPIENTS: "+recipients)
+				inserted = true
+			}
+			continue
+		}
+		output = append(output, line)
+	}
+
+	return os.WriteFile(file, []byte(strings.Join(output, "\n")), 0o600)
+}
+
+// EnsurePublicKeysMetadata adds or updates the PUBLIC_KEYS metadata field
+func EnsurePublicKeysMetadata(file string, publicKeysMap map[string]string) error {
+	if len(publicKeysMap) == 0 {
+		return nil
+	}
+
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	// Build the PUBLIC_KEYS value as "hostname1:key1,hostname2:key2,..."
+	pairs := make([]string, 0, len(publicKeysMap))
+	for hostname, pubkey := range publicKeysMap {
+		pairs = append(pairs, hostname+":"+pubkey)
+	}
+	// Sort for deterministic output
+	sort.Strings(pairs)
+	publicKeysValue := strings.Join(pairs, ",")
+
+	lines := strings.Split(string(content), "\n")
+	output := make([]string, 0, len(lines)+1)
+	inMetadata := false
+	inserted := false
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "# === ENV_SYNC_METADATA ===") {
+			inMetadata = true
+			output = append(output, line)
+			continue
+		}
+		if strings.HasPrefix(line, "# === END_METADATA ===") {
+			if !inserted {
+				output = append(output, "# PUBLIC_KEYS: "+publicKeysValue)
+				inserted = true
+			}
+			inMetadata = false
+			output = append(output, line)
+			continue
+		}
+		if inMetadata && strings.HasPrefix(line, "# PUBLIC_KEYS:") {
+			// Skip existing PUBLIC_KEYS line, we'll add new one
+			continue
+		}
+		if inMetadata && strings.HasPrefix(line, "# RECIPIENTS:") {
+			// Add PUBLIC_KEYS right after RECIPIENTS
+			output = append(output, line)
+			if !inserted {
+				output = append(output, "# PUBLIC_KEYS: "+publicKeysValue)
 				inserted = true
 			}
 			continue
@@ -133,7 +193,7 @@ func ClearEncryptedMetadata(file string) error {
 	lines := strings.Split(string(content), "\n")
 	output := make([]string, 0, len(lines))
 	for _, line := range lines {
-		if strings.HasPrefix(line, "# ENCRYPTED:") || strings.HasPrefix(line, "# RECIPIENTS:") {
+		if strings.HasPrefix(line, "# ENCRYPTED:") || strings.HasPrefix(line, "# RECIPIENTS:") || strings.HasPrefix(line, "# PUBLIC_KEYS:") {
 			continue
 		}
 		output = append(output, line)

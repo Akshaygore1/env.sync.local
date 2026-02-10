@@ -189,6 +189,11 @@ func syncFromHost(host string, useHTTP bool, forcePull bool) error {
 	}
 	defer os.Remove(remoteFile)
 
+	// Extract and cache public keys from remote file
+	if err := keys.CachePublicKeysFromFile(remoteFile); err != nil {
+		logging.Log("WARN", "Failed to cache public keys from remote file")
+	}
+
 	if _, err := os.Stat(config.SecretsFile()); err != nil {
 		logging.Log("INFO", "No local secrets file found, copying from "+host)
 		if err := copyFile(remoteFile, config.SecretsFile()); err != nil {
@@ -400,6 +405,13 @@ func reencryptSecrets(inputFile, outputFile string) error {
 	if err := metadata.EnsureEncryptedMetadata(outputFile, secrets.GetHostname(), recipientsStr); err != nil {
 		return err
 	}
+
+	// Add PUBLIC_KEYS metadata
+	publicKeys := keys.GetAllKnownPublicKeys()
+	if err := metadata.EnsurePublicKeysMetadata(outputFile, publicKeys); err != nil {
+		logging.Log("WARN", "Failed to update PUBLIC_KEYS metadata")
+	}
+
 	return secrets.UpdateMetadata(outputFile, "")
 }
 

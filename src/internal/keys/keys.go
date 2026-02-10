@@ -257,6 +257,102 @@ func GetAllKnownRecipients() []string {
 	return recipients
 }
 
+// GetAllKnownPublicKeys returns a map of hostname -> public key for all known machines
+func GetAllKnownPublicKeys() map[string]string {
+	publicKeys := make(map[string]string)
+
+	// Add local machine
+	local := GetLocalPubkey()
+	if local != "" {
+		hostname := getLocalHostname()
+		publicKeys[hostname] = local
+	}
+
+	// Add all cached peer keys
+	files, _ := filepath.Glob(filepath.Join(config.AgeKnownHostsDir(), "*.pub"))
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+		pubkey := strings.TrimSpace(string(data))
+		if pubkey == "" {
+			continue
+		}
+		hostname := strings.TrimSuffix(filepath.Base(file), ".pub")
+		publicKeys[hostname] = pubkey
+	}
+
+	return publicKeys
+}
+
+// ExtractPublicKeysFromFile parses the PUBLIC_KEYS metadata field and returns hostname:key pairs
+func ExtractPublicKeysFromFile(file string) map[string]string {
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return nil
+	}
+
+	publicKeys := make(map[string]string)
+
+	// Look for PUBLIC_KEYS metadata line
+	for _, line := range strings.Split(string(content), "\n") {
+		if strings.HasPrefix(line, "# PUBLIC_KEYS: ") {
+			value := strings.TrimPrefix(line, "# PUBLIC_KEYS: ")
+			value = strings.TrimSpace(value)
+
+			// Parse comma-separated hostname:key pairs
+			pairs := strings.Split(value, ",")
+			for _, pair := range pairs {
+				parts := strings.SplitN(pair, ":", 2)
+				if len(parts) == 2 {
+					hostname := strings.TrimSpace(parts[0])
+					pubkey := strings.TrimSpace(parts[1])
+					if hostname != "" && pubkey != "" && ValidatePubkey(pubkey) {
+						publicKeys[hostname] = pubkey
+					}
+				}
+			}
+			break
+		}
+	}
+
+	return publicKeys
+}
+
+// CachePublicKeysFromFile extracts public keys from a file and caches them locally
+func CachePublicKeysFromFile(file string) error {
+	publicKeys := ExtractPublicKeysFromFile(file)
+	localHostname := getLocalHostname()
+
+	for hostname, pubkey := range publicKeys {
+		// Don't cache our own key
+		if hostname == localHostname {
+			continue
+		}
+
+		// Cache the peer's public key
+		if err := CachePeerPubkey(hostname, pubkey); err != nil {
+			logging.Log("WARN", fmt.Sprintf("Failed to cache public key for %s: %v", hostname, err))
+		} else {
+			if config.IsVerbose() {
+				logging.Log("INFO", fmt.Sprintf("Cached public key for %s", hostname))
+			}
+		}
+	}
+
+	return nil
+}
+
+func getLocalHostname() string {
+	// Try to get hostname from secrets module (it has the same logic)
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "unknown"
+	}
+	return hostname
+}
+
 func ValidatePubkey(pubkey string) bool {
 	return regexp.MustCompile(`^age1[0-9a-z]+$`).MatchString(pubkey)
 }
