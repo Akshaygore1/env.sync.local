@@ -155,18 +155,66 @@ func discoverDnssd(timeout time.Duration) ([]string, error) {
 	args := []string{"dns-sd", "-B", config.Service, "local."}
 	logging.LogCommand(args...)
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	output, _ := cmd.Output()
+
+	// dns-sd -B is a monitoring command that doesn't exit on its own.
+	// We need to read output as it arrives, not wait for the process to exit.
+	// Use StdoutPipe to read streaming output before the context timeout kills the process.
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	// Read output in a channel to handle timeout properly
+	outputChan := make(chan string, 1)
+	go func() {
+		var builder strings.Builder
+		buf := make([]byte, 4096)
+		for {
+			n, err := stdout.Read(buf)
+			if n > 0 {
+				builder.Write(buf[:n])
+			}
+			if err != nil {
+				break
+			}
+		}
+		outputChan <- builder.String()
+	}()
+
+	// Wait for either the output to be collected or context timeout
+	var output string
+	select {
+	case output = <-outputChan:
+		// Output collected successfully
+	case <-ctx.Done():
+		// Timeout reached, collect whatever we have so far
+		// The context will kill the process
+		_ = cmd.Wait()
+		// Try to get partial output if available
+		select {
+		case output = <-outputChan:
+		case <-time.After(100 * time.Millisecond):
+			// Give up after a short wait
+		}
+	}
+
+	// Always wait for the process to clean up
+	_ = cmd.Wait()
 
 	// dns-sd -B output format:
 	// Timestamp     A/R    Flags  if Domain               Service Type         Instance Name
 	// 3:26:33.519  Add        3  14 local.               _envsync._tcp.       beelink
-	lines := strings.Split(string(output), "\n")
+	lines := strings.Split(output, "\n")
 	peers := []string{}
 	instanceNames := make(map[string]bool)
 
 	for _, line := range lines {
 		// Skip empty lines and headers
-		if line == "" || strings.Contains(line, "Timestamp") || strings.Contains(line, "STARTING") {
+		if line == "" || strings.Contains(line, "Timestamp") || strings.Contains(line, "STARTING") || strings.Contains(line, "DATE:") {
 			continue
 		}
 
