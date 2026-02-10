@@ -28,6 +28,32 @@ func FetchViaSCP(host string, remotePath string, dest string) error {
 	return cmd.Run()
 }
 
+// RegisterPubkeyWithPeer SSHs into a remote host, stores the local pubkey
+// in their known_hosts directory, and triggers re-encryption so the remote
+// secrets include this machine as a recipient.
+func RegisterPubkeyWithPeer(host string, localPubkey string, localHostname string) error {
+	script := `mkdir -p ~/.config/env-sync/keys/known_hosts && printf %s "$1" > ~/.config/env-sync/keys/known_hosts/$2.pub && env-sync 2>/dev/null || true && echo 'ENVSYNC_REGISTER_SUCCESS'`
+	args := []string{
+		"ssh",
+		"-o", "BatchMode=yes",
+		"-o", "ConnectTimeout=5",
+		"-o", "StrictHostKeyChecking=" + HostKeyCheckingMode(),
+		host,
+		"bash", "-c", script,
+		"bash", localPubkey, localHostname,
+	}
+	logging.LogCommand(args...)
+	cmd := exec.Command(args[0], args[1:]...)
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("SSH command failed: %w", err)
+	}
+	if !strings.Contains(string(output), "ENVSYNC_REGISTER_SUCCESS") {
+		return fmt.Errorf("remote registration did not succeed")
+	}
+	return nil
+}
+
 func Hostname() string {
 	return strings.TrimSpace(secrets.GetHostname())
 }

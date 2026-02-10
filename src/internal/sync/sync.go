@@ -187,6 +187,25 @@ func syncFromHost(host string, useHTTP bool, forcePull bool) error {
 	if err != nil {
 		return err
 	}
+
+	// If the remote file is encrypted and we can't decrypt it, auto-register
+	// with the peer so it re-encrypts secrets with our key, then re-fetch
+	if !useHTTP && keys.IsFileEncrypted(remoteFile) && !keys.CanDecryptFile(remoteFile) {
+		os.Remove(remoteFile)
+		logging.Log("INFO", "Local key not in recipients list on "+host+", registering and triggering re-encryption...")
+		if err := ensureRegisteredWithPeer(host); err != nil {
+			return fmt.Errorf("cannot decrypt secrets from %s and failed to register: %w", host, err)
+		}
+		remoteFile, err = fetchFromHost(host, useHTTP)
+		if err != nil {
+			return fmt.Errorf("failed to re-fetch secrets from %s after registration: %w", host, err)
+		}
+		if keys.IsFileEncrypted(remoteFile) && !keys.CanDecryptFile(remoteFile) {
+			os.Remove(remoteFile)
+			return errors.New("still cannot decrypt secrets from " + host + " after registration")
+		}
+		logging.Log("SUCCESS", "Registered with "+host+" and re-fetched secrets")
+	}
 	defer os.Remove(remoteFile)
 
 	// Extract and cache public keys from remote file
@@ -357,6 +376,21 @@ func cachePeerPubkey(host string) {
 		return
 	}
 	logging.Log("SUCCESS", "Cached public key from "+host)
+}
+
+func ensureRegisteredWithPeer(host string) error {
+	localPubkey := keys.GetLocalPubkey()
+	if localPubkey == "" {
+		return errors.New("no local key found - generate with: env-sync init --encrypted")
+	}
+	localHostname := secrets.GetHostname()
+
+	logging.Log("INFO", "Registering public key with "+host+" and triggering re-encryption...")
+	if err := sshtransport.RegisterPubkeyWithPeer(host, localPubkey, localHostname); err != nil {
+		return fmt.Errorf("failed to register with %s: %w", host, err)
+	}
+	logging.Log("SUCCESS", "Registered with "+host)
+	return nil
 }
 
 func reencryptSecrets(inputFile, outputFile string) error {
