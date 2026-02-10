@@ -69,7 +69,7 @@ done
 
 # Detect if running from local repo or via curl/wget (remote mode)
 REMOTE_MODE=false
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 # Check if we're in a git repository with the expected structure
 if [[ ! -d "$SCRIPT_DIR/src" ]] || [[ ! -f "$SCRIPT_DIR/Makefile" ]]; then
