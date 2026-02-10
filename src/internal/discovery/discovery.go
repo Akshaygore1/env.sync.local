@@ -189,12 +189,10 @@ func discoverDnssd(timeout time.Duration) ([]string, error) {
 	var output string
 	select {
 	case output = <-outputChan:
-		// Output collected successfully
+		// Output collected successfully, process should have exited
 	case <-ctx.Done():
-		// Timeout reached, collect whatever we have so far
-		// The context will kill the process
-		_ = cmd.Wait()
-		// Try to get partial output if available
+		// Timeout reached - context will kill the process
+		// Try to get partial output if available (short timeout)
 		select {
 		case output = <-outputChan:
 		case <-time.After(100 * time.Millisecond):
