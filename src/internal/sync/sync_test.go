@@ -65,3 +65,22 @@ func TestCachePeerPubkeySkipsInvalidKey(t *testing.T) {
 		t.Fatal("Expected no cached pubkey for invalid key")
 	}
 }
+
+func TestCachePeerPubkeySkipsEmptyKey(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+
+	binDir := filepath.Join(tempDir, "bin")
+	if err := os.MkdirAll(binDir, 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	writeSSHScript(t, binDir, "")
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cachePeerPubkey("peer.local")
+
+	cachedPath := filepath.Join(config.AgeKnownHostsDir(), "peer.local.pub")
+	if _, err := os.Stat(cachedPath); err == nil {
+		t.Fatal("Expected no cached pubkey for empty key")
+	}
+}
