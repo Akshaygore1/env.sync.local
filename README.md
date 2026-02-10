@@ -174,6 +174,7 @@ env-sync init              # Create new secrets file
 env-sync init --encrypted  # Create with encryption
 env-sync restore [n]       # Restore from backup (n=1-5)
 env-sync cron --install    # Setup 30-min sync cron job
+env-sync cron --install --interval 10  # Setup cron with custom interval (minutes)
 env-sync --help            # Show full help
 ```
 
@@ -304,6 +305,47 @@ env-sync remove OLD_API_KEY
 # Changes are automatically backed up
 ls ~/.config/env-sync/backups/
 ```
+
+### Managing Periodic Sync with Cron
+
+env-sync can automatically sync your secrets at regular intervals using cron. This ensures your secrets stay up-to-date across all machines without manual intervention.
+
+#### Installing Cron Job
+
+```bash
+# Install with default 30-minute interval
+env-sync cron --install
+
+# Install with custom interval (in minutes)
+env-sync cron --install --interval 10   # Sync every 10 minutes
+env-sync cron --install --interval 60   # Sync every 60 minutes
+```
+
+**Features:**
+- Only accepts minute values (1-59 for practical use)
+- Automatically removes any existing env-sync cron job before installing
+- Ensures you never have duplicate cron entries
+- Runs in quiet mode to avoid cron email spam
+
+#### Viewing Current Cron Job
+
+```bash
+# Show the currently installed cron job
+env-sync cron --show
+```
+
+#### Removing Cron Job
+
+```bash
+# Remove the cron job
+env-sync cron --remove
+```
+
+**Important Notes:**
+- Installing a new cron job with `--install` automatically removes the old one first
+- You can safely change the interval by running `--install --interval <new>` - it will replace the existing cron
+- The cron job runs `env-sync --quiet sync` to suppress output
+- All cron activity is logged to `~/.config/env-sync/logs/`
 
 ### Force Pull from a Specific Host
 

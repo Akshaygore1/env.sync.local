@@ -10,15 +10,18 @@ import (
 	"envsync/internal/logging"
 )
 
-func Install(executable string) error {
-	cronLine := fmt.Sprintf("*/30 * * * * %s --quiet sync >/dev/null 2>&1", executable)
+func Install(executable string, interval int) error {
+	if interval <= 0 {
+		interval = 30 // default to 30 minutes
+	}
+	cronLine := fmt.Sprintf("*/%d * * * * %s --quiet sync >/dev/null 2>&1", interval, executable)
 	existing := readCrontab()
 	filtered := filterEnvSync(existing)
 	filtered = append(filtered, cronLine)
 	if err := writeCrontab(filtered); err != nil {
 		return err
 	}
-	logging.Log("SUCCESS", "Installed cron job for 30-minute sync")
+	logging.Log("SUCCESS", fmt.Sprintf("Installed cron job for %d-minute sync", interval))
 	logging.Log("INFO", "Next sync will happen automatically")
 	return nil
 }

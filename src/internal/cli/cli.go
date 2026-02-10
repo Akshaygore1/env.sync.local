@@ -210,7 +210,8 @@ Commands:
 
   cron [options]           Setup cron job for periodic sync
     Options:
-      --install            Install cron job (30min interval)
+      --install            Install cron job (default: 30min interval)
+      --interval <mins>    Set interval in minutes (use with --install)
       --remove             Remove cron job
       --show               Show current cron job
 
@@ -659,7 +660,10 @@ func runRestore(args []string) int {
 
 func runCron(args []string) int {
 	action := "show"
-	for _, arg := range args {
+	interval := 30 // default interval in minutes
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		switch arg {
 		case "--install":
 			action = "install"
@@ -667,6 +671,23 @@ func runCron(args []string) int {
 			action = "remove"
 		case "--show":
 			action = "show"
+		case "--interval":
+			if i+1 >= len(args) {
+				logging.Log("ERROR", "--interval requires a value")
+				fmt.Println("Usage: env-sync cron --install --interval <minutes>")
+				return 1
+			}
+			i++
+			parsedInterval, err := strconv.Atoi(args[i])
+			if err != nil {
+				logging.Log("ERROR", fmt.Sprintf("Invalid interval value: %s (must be a number)", args[i]))
+				return 1
+			}
+			if parsedInterval <= 0 {
+				logging.Log("ERROR", "Interval must be greater than 0")
+				return 1
+			}
+			interval = parsedInterval
 		default:
 			logging.Log("ERROR", fmt.Sprintf("Unknown option: %s", arg))
 			return 1
@@ -680,7 +701,7 @@ func runCron(args []string) int {
 
 	switch action {
 	case "install":
-		if err := cron.Install(exe); err != nil {
+		if err := cron.Install(exe, interval); err != nil {
 			return 1
 		}
 	case "remove":
