@@ -127,6 +127,7 @@ func discoverAvahi(timeout time.Duration) ([]string, error) {
 	output, _ := cmd.Output()
 	lines := strings.Split(string(output), "\n")
 	peers := []string{}
+	selfHostname := sshtransport.Hostname()
 	for _, line := range lines {
 		if !strings.HasPrefix(line, "=") {
 			continue
@@ -136,7 +137,7 @@ func discoverAvahi(timeout time.Duration) ([]string, error) {
 			continue
 		}
 		hostname := strings.TrimSuffix(fields[6], ".")
-		if hostname != "" {
+		if hostname != "" && hostname != selfHostname {
 			peers = append(peers, hostname)
 		}
 	}
@@ -213,6 +214,7 @@ func parseDnssdPeers(output string) []string {
 	lines := strings.Split(output, "\n")
 	peers := []string{}
 	instanceNames := make(map[string]bool)
+	selfHostname := sshtransport.Hostname()
 
 	for _, line := range lines {
 		if line == "" || strings.Contains(line, "Timestamp") || strings.Contains(line, "STARTING") || strings.Contains(line, "DATE:") {
@@ -242,6 +244,11 @@ func parseDnssdPeers(output string) []string {
 		hostname := instanceName
 		if !strings.HasSuffix(hostname, ".local") {
 			hostname = hostname + ".local"
+		}
+
+		// Filter out self - compare both with and without .local suffix
+		if hostname == selfHostname || instanceName == selfHostname || instanceName+".local" == selfHostname {
+			continue
 		}
 
 		peers = append(peers, hostname)
