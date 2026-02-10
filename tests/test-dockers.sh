@@ -18,8 +18,8 @@
 set -e
 
 # Script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TESTS_DIR="$SCRIPT_DIR/tests"
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$TESTS_DIR/.."
 BATS_TEST_DIR="$TESTS_DIR/bats"
 
 # Colors for output

@@ -12,8 +12,8 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TESTS_DIR="$SCRIPT_DIR/tests"
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$TESTS_DIR/.."
 
 # Colors
 GREEN='\033[0;32m'
