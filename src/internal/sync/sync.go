@@ -235,6 +235,9 @@ func syncFromHost(host string, useHTTP bool, forcePull bool) error {
 		if err := secrets.SetSecretsContent(config.SecretsFile(), remoteContent); err != nil {
 			return err
 		}
+		if err := refreshPublicKeysMetadata(config.SecretsFile()); err != nil {
+			logging.Log("WARN", "Failed to update PUBLIC_KEYS metadata: "+err.Error())
+		}
 		logging.Log("SUCCESS", "Force pulled secrets from "+host)
 		return nil
 	}
@@ -245,6 +248,9 @@ func syncFromHost(host string, useHTTP bool, forcePull bool) error {
 
 	if err := secrets.SetSecretsContent(config.SecretsFile(), merged); err != nil {
 		return err
+	}
+	if err := refreshPublicKeysMetadata(config.SecretsFile()); err != nil {
+		logging.Log("WARN", "Failed to update PUBLIC_KEYS metadata: "+err.Error())
 	}
 
 	logging.Log("SUCCESS", "Synced and merged secrets from "+host)
@@ -435,8 +441,7 @@ func reencryptSecrets(inputFile, outputFile string) error {
 		return err
 	}
 
-	recipientsStr := strings.Join(recipients, ",")
-	if err := metadata.EnsureEncryptedMetadata(outputFile, secrets.GetHostname(), recipientsStr); err != nil {
+	if err := metadata.EnsureEncryptedMetadata(outputFile, secrets.GetHostname()); err != nil {
 		return err
 	}
 
@@ -458,4 +463,12 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, data, 0o600)
+}
+
+func refreshPublicKeysMetadata(file string) error {
+	if !keys.IsFileEncrypted(file) {
+		return nil
+	}
+	publicKeys := keys.GetAllKnownPublicKeys()
+	return metadata.EnsurePublicKeysMetadata(file, publicKeys)
 }

@@ -80,11 +80,21 @@ func TestEnsureEncryptedMetadataAndClear(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	if err := EnsureEncryptedMetadata(file, "newhost.local", "age1aaa,age1bbb"); err != nil {
+	if err := EnsureEncryptedMetadata(file, "newhost.local"); err != nil {
 		t.Fatalf("EnsureEncryptedMetadata: %v", err)
 	}
-	if err := EnsureEncryptedMetadata(file, "newhost.local", "age1aaa,age1bbb"); err != nil {
+	publicKeys := map[string]string{
+		"newhost.local": "age1aaa",
+		"peer.local":    "age1bbb",
+	}
+	if err := EnsurePublicKeysMetadata(file, publicKeys); err != nil {
+		t.Fatalf("EnsurePublicKeysMetadata: %v", err)
+	}
+	if err := EnsureEncryptedMetadata(file, "newhost.local"); err != nil {
 		t.Fatalf("EnsureEncryptedMetadata (idempotent): %v", err)
+	}
+	if err := EnsurePublicKeysMetadata(file, publicKeys); err != nil {
+		t.Fatalf("EnsurePublicKeysMetadata (idempotent): %v", err)
 	}
 
 	updated, err := os.ReadFile(file)
@@ -98,8 +108,8 @@ func TestEnsureEncryptedMetadataAndClear(t *testing.T) {
 	if strings.Count(text, "# ENCRYPTED: true") != 1 {
 		t.Fatalf("expected single ENCRYPTED line")
 	}
-	if strings.Count(text, "# RECIPIENTS: age1aaa,age1bbb") != 1 {
-		t.Fatalf("expected single RECIPIENTS line")
+	if strings.Count(text, "# PUBLIC_KEYS: newhost.local:age1aaa,peer.local:age1bbb") != 1 {
+		t.Fatalf("expected single PUBLIC_KEYS line")
 	}
 
 	if err := ClearEncryptedMetadata(file); err != nil {
@@ -111,7 +121,7 @@ func TestEnsureEncryptedMetadataAndClear(t *testing.T) {
 		t.Fatalf("read file after clear: %v", err)
 	}
 	clearedText := string(cleared)
-	if strings.Contains(clearedText, "# ENCRYPTED:") || strings.Contains(clearedText, "# RECIPIENTS:") {
+	if strings.Contains(clearedText, "# ENCRYPTED:") || strings.Contains(clearedText, "# PUBLIC_KEYS:") {
 		t.Fatalf("expected encrypted metadata to be removed")
 	}
 	if !strings.Contains(clearedText, "# HOST: newhost.local") {

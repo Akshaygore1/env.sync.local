@@ -81,7 +81,7 @@ func UpdateMetadataFields(file string, updates map[string]string) error {
 	return os.WriteFile(file, []byte(strings.Join(lines, "\n")), 0o600)
 }
 
-func EnsureEncryptedMetadata(file string, hostname string, recipients string) error {
+func EnsureEncryptedMetadata(file string, hostname string) error {
 	content, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -101,21 +101,19 @@ func EnsureEncryptedMetadata(file string, hostname string, recipients string) er
 		if strings.HasPrefix(line, "# === END_METADATA ===") {
 			if !inserted {
 				output = append(output, "# ENCRYPTED: true")
-				output = append(output, "# RECIPIENTS: "+recipients)
 				inserted = true
 			}
 			inMetadata = false
 			output = append(output, line)
 			continue
 		}
-		if inMetadata && (strings.HasPrefix(line, "# ENCRYPTED:") || strings.HasPrefix(line, "# RECIPIENTS:") || strings.HasPrefix(line, "# PUBLIC_KEYS:")) {
+		if inMetadata && (strings.HasPrefix(line, "# ENCRYPTED:") || strings.HasPrefix(line, "# RECIPIENTS:")) {
 			continue
 		}
 		if inMetadata && strings.HasPrefix(line, "# HOST:") {
 			output = append(output, "# HOST: "+hostname)
 			if !inserted {
 				output = append(output, "# ENCRYPTED: true")
-				output = append(output, "# RECIPIENTS: "+recipients)
 				inserted = true
 			}
 			continue
@@ -170,8 +168,8 @@ func EnsurePublicKeysMetadata(file string, publicKeysMap map[string]string) erro
 			// Skip existing PUBLIC_KEYS line, we'll add new one
 			continue
 		}
-		if inMetadata && strings.HasPrefix(line, "# RECIPIENTS:") {
-			// Add PUBLIC_KEYS right after RECIPIENTS
+		if inMetadata && strings.HasPrefix(line, "# ENCRYPTED:") {
+			// Add PUBLIC_KEYS right after ENCRYPTED
 			output = append(output, line)
 			if !inserted {
 				output = append(output, "# PUBLIC_KEYS: "+publicKeysValue)

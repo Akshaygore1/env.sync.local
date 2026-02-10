@@ -223,7 +223,7 @@ MAX_BACKUPS = 5
 # HOST: beelink.local
 # MODIFIED: 2025-02-08T15:30:45Z
 # ENCRYPTED: true
-# RECIPIENTS: age1xyz...,age1abc...,age1def...
+# PUBLIC_KEYS: beelink.local:age1xyz...,mbp16.local:age1abc...,nuc.local:age1def...
 # === END_METADATA ===
 
 OPENAI_API_KEY="YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+..." # ENVSYNC_UPDATED_AT=2025-02-08T15:30:45Z
@@ -239,7 +239,7 @@ DATABASE_URL="YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+..." # ENVSYNC_UPDATED_AT=2025-02-
 **Important Notes**:
 - Metadata in header AND footer (for validation)
 - Metadata is plaintext (for versioning/discovery)
-- Keys are plaintext (for easy viewing/editing)
+- Public keys are AGE keys (not SSH keys)
 - Values are individually encrypted using AGE
 - Each value has a timestamp for granular merging
 - Multi-recipient encryption (encrypted to all known peers)

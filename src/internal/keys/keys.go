@@ -64,15 +64,26 @@ func IsFileEncrypted(file string) bool {
 	return strings.Contains(string(content), "# ENCRYPTED: true")
 }
 
-func GetRecipientsFromFile(file string) string {
+func GetRecipientsFromFile(file string) []string {
 	if !IsFileEncrypted(file) {
-		return ""
+		return nil
 	}
-	return metadata.ExtractMetadata(file, "RECIPIENTS")
+	publicKeys := ExtractPublicKeysFromFile(file)
+	recipients := make([]string, 0, len(publicKeys))
+	for _, pubkey := range publicKeys {
+		if pubkey != "" {
+			recipients = append(recipients, pubkey)
+		}
+	}
+	if len(recipients) == 0 {
+		recipients = parseRecipients(metadata.ExtractMetadata(file, "RECIPIENTS"))
+	}
+	sort.Strings(recipients)
+	return recipients
 }
 
-func RecipientsContain(recipients string, target string) bool {
-	for _, recipient := range parseRecipients(recipients) {
+func RecipientsContain(recipients []string, target string) bool {
+	for _, recipient := range recipients {
 		if recipient == target {
 			return true
 		}
@@ -345,12 +356,7 @@ func CachePublicKeysFromFile(file string) error {
 }
 
 func getLocalHostname() string {
-	// Try to get hostname from secrets module (it has the same logic)
-	hostname, _ := os.Hostname()
-	if hostname == "" {
-		hostname = "unknown"
-	}
-	return hostname
+	return secrets.GetHostname()
 }
 
 func ValidatePubkey(pubkey string) bool {
