@@ -213,6 +213,10 @@ func syncFromHost(host string, useHTTP bool, forcePull bool) error {
 		logging.Log("WARN", "Failed to cache public keys from remote file")
 	}
 
+	// After caching new public keys, re-encrypt local file if needed
+	// to add the new recipients to our file's PUBLIC_KEYS metadata
+	maybeReencryptLocal()
+
 	if _, err := os.Stat(config.SecretsFile()); err != nil {
 		logging.Log("INFO", "No local secrets file found, copying from "+host)
 		if err := copyFile(remoteFile, config.SecretsFile()); err != nil {
