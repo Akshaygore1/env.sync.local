@@ -167,8 +167,8 @@ func DecryptSecretsFile(inputFile string, outputFile string) error {
 		return errors.New("cannot decrypt")
 	}
 
-	logging.Log("ERROR", "Legacy file format detected (full file encryption). Please re-initialize.")
-	return errors.New("legacy encryption")
+	logging.Log("ERROR", "Unsupported full-file encryption format detected. Please re-initialize.")
+	return errors.New("unsupported full-file encryption")
 }
 
 func EncryptValue(value string, recipients []string) (string, error) {

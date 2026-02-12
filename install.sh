@@ -12,10 +12,8 @@ NC='\033[0m'
 
 # Configuration
 USER_INSTALL=false
-INSTALL_LEGACY=false
 INSTALL_PREFIX="/usr/local"
 BIN_DIR="$INSTALL_PREFIX/bin"
-LIB_DIR="$INSTALL_PREFIX/lib/env-sync"
 ENV_SYNC_LOAD_LINE='eval "$(env-sync load --quiet 2>/dev/null)"'
 
 # GitHub repository
@@ -29,18 +27,12 @@ while [[ $# -gt 0 ]]; do
             USER_INSTALL=true
             INSTALL_PREFIX="$HOME/.local"
             BIN_DIR="$INSTALL_PREFIX/bin"
-            LIB_DIR="$INSTALL_PREFIX/lib/env-sync"
-            shift
-            ;;
-        --legacy)
-            INSTALL_LEGACY=true
             shift
             ;;
         --help)
             echo "Usage: install.sh [options]"
             echo "Options:"
             echo "  --user    Install to ~/.local (no sudo required)"
-            echo "  --legacy  Install legacy bash version instead of Go binary"
             echo "  --help    Show this help"
             echo ""
             echo "Installation modes:"
@@ -159,16 +151,7 @@ download_binary() {
     echo "$temp_binary"
 }
 
-if [[ "$INSTALL_LEGACY" == "true" ]]; then
-    echo -e "${BLUE}Installing env-sync (legacy bash version)...${NC}"
-    if [[ "$REMOTE_MODE" == "true" ]]; then
-        echo -e "${RED}Error: Legacy bash version installation is not supported in remote mode${NC}"
-        echo "Please clone the repository and run './install.sh --legacy' locally"
-        exit 1
-    fi
-else
-    echo -e "${BLUE}Installing env-sync v2.0 (Go binary)...${NC}"
-fi
+echo -e "${BLUE}Installing env-sync v2.0 (Go binary)...${NC}"
 
 # Detect OS
 OS=$(uname -s)
@@ -178,89 +161,39 @@ echo "Checking dependencies..."
 
 MISSING_DEPS=()
 
-if [[ "$INSTALL_LEGACY" == "true" ]]; then
-    # Legacy bash version dependencies
-    if ! command -v curl >/dev/null 2>&1; then
-        MISSING_DEPS+=("curl")
-    fi
-
-    if ! command -v nc >/dev/null 2>&1 && ! command -v netcat >/dev/null 2>&1; then
-        MISSING_DEPS+=("netcat (nc)")
-    fi
-
-    # Check for age (required for encryption support in bash version)
-    if ! command -v age >/dev/null 2>&1; then
-        MISSING_DEPS+=("age")
-    fi
-
-    if ! command -v age-keygen >/dev/null 2>&1; then
-        MISSING_DEPS+=("age-keygen")
-    fi
-
-    case "$OS" in
-        Linux)
-            if ! command -v avahi-browse >/dev/null 2>&1; then
-                MISSING_DEPS+=("avahi-utils")
-            fi
-            ;;
-        Darwin)
-            # macOS has built-in dns-sd
-            ;;
-    esac
-else
-    # Go version dependencies (minimal - most is built-in)
-    # Only require Go if building from source (local mode)
-    if [[ "$REMOTE_MODE" == "false" ]] && ! command -v go >/dev/null 2>&1; then
-        MISSING_DEPS+=("go (v1.24 or later)")
-    fi
-
-    case "$OS" in
-        Linux)
-            if ! command -v avahi-browse >/dev/null 2>&1; then
-                MISSING_DEPS+=("avahi-utils (for mDNS discovery)")
-            fi
-            ;;
-        Darwin)
-            # macOS has built-in dns-sd
-            ;;
-    esac
+# Go version dependencies (minimal - most is built-in)
+# Only require Go if building from source (local mode)
+if [[ "$REMOTE_MODE" == "false" ]] && ! command -v go >/dev/null 2>&1; then
+    MISSING_DEPS+=("go (v1.24 or later)")
 fi
+
+case "$OS" in
+    Linux)
+        if ! command -v avahi-browse >/dev/null 2>&1; then
+            MISSING_DEPS+=("avahi-utils (for mDNS discovery)")
+        fi
+        ;;
+    Darwin)
+        # macOS has built-in dns-sd
+        ;;
+esac
 
 if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
     echo -e "${YELLOW}Warning: Missing dependencies:${NC}"
     printf '  - %s\n' "${MISSING_DEPS[@]}"
     echo ""
-    if [[ "$INSTALL_LEGACY" == "false" ]]; then
-        echo "Please install them:"
-        case "$OS" in
-            Linux)
-                echo "  Ubuntu/Debian: sudo apt-get install golang-go avahi-daemon avahi-utils"
-                echo "  Fedora/RHEL:   sudo dnf install golang avahi avahi-tools"
-                ;;
-            Darwin)
-                echo "  macOS: brew install go"
-                ;;
-        esac
-        echo ""
-        echo "Note: AGE encryption is built into the Go binary, no separate age package needed."
-    else
-        echo "Please install them:"
-        case "$OS" in
-            Linux)
-                echo "  Ubuntu/Debian: sudo apt-get install avahi-daemon avahi-utils curl netcat-openbsd age"
-                echo "  Fedora/RHEL:   sudo dnf install avahi avahi-tools curl nmap-ncat age"
-                echo ""
-                echo "  To install age manually:"
-                echo "    curl -fsSL https://github.com/FiloSottile/age/releases/latest/download/age-v1.2.0-linux-amd64.tar.gz | tar -xz -C /usr/local/bin --strip-components=1"
-                ;;
-            Darwin)
-                echo "  macOS: brew install age"
-                echo ""
-                echo "  To install age manually:"
-                echo "    curl -fsSL https://github.com/FiloSottile/age/releases/latest/download/age-v1.2.0-darwin-amd64.tar.gz | tar -xz -C /usr/local/bin --strip-components=1"
-                ;;
-        esac
-    fi
+    echo "Please install them:"
+    case "$OS" in
+        Linux)
+            echo "  Ubuntu/Debian: sudo apt-get install golang-go avahi-daemon avahi-utils"
+            echo "  Fedora/RHEL:   sudo dnf install golang avahi avahi-tools"
+            ;;
+        Darwin)
+            echo "  macOS: brew install go"
+            ;;
+    esac
+    echo ""
+    echo "Note: AGE encryption is built into the Go binary, no separate age package needed."
     echo ""
     read -p "Continue anyway? [y/N] " -n 1 -r
     echo
@@ -296,92 +229,58 @@ add_shell_integration() {
 echo "Creating directories..."
 mkdir -p "$BIN_DIR"
 
-if [[ "$INSTALL_LEGACY" == "true" ]]; then
-    mkdir -p "$LIB_DIR"
-fi
-
 # Install files
 echo "Installing files..."
 
-# Stop running service if it exists (for Go version only)
+# Stop running service if it exists
 SERVICE_WAS_STOPPED=false
-if [[ "$INSTALL_LEGACY" == "false" ]]; then
-    # Check if env-sync is already installed and try to stop the service
-    if command -v env-sync >/dev/null 2>&1; then
-        echo "Checking for running service..."
-        # Try to stop the service gracefully
-        if env-sync service stop 2>&1 | grep -q "Service stopped"; then
-            SERVICE_WAS_STOPPED=true
-        fi
+# Check if env-sync is already installed and try to stop the service
+if command -v env-sync >/dev/null 2>&1; then
+    echo "Checking for running service..."
+    # Try to stop the service gracefully
+    if env-sync service stop 2>&1 | grep -q "Service stopped"; then
+        SERVICE_WAS_STOPPED=true
     fi
 fi
 
-if [[ "$INSTALL_LEGACY" == "true" ]]; then
-    # Install legacy bash version
-    cp "$SCRIPT_DIR/legacy/bin/env-sync" "$BIN_DIR/"
-    cp "$SCRIPT_DIR/legacy/bin/env-sync-discover" "$BIN_DIR/"
-    cp "$SCRIPT_DIR/legacy/bin/env-sync-client" "$BIN_DIR/"
-    cp "$SCRIPT_DIR/legacy/bin/env-sync-serve" "$BIN_DIR/"
-    cp "$SCRIPT_DIR/legacy/bin/env-sync-key" "$BIN_DIR/"
-    cp "$SCRIPT_DIR/legacy/bin/env-sync-load" "$BIN_DIR/"
+# Build and install Go binary
+if [[ "$REMOTE_MODE" == "true" ]]; then
+    # Remote mode - download pre-built binary
+    PLATFORM=$(detect_platform)
+    echo "Detected platform: $PLATFORM"
+    TEMP_BINARY=$(download_binary "$PLATFORM")
 
-    # Install library
-    cp "$SCRIPT_DIR/legacy/lib/common.sh" "$LIB_DIR/"
+    # Install downloaded binary
+    cp "$TEMP_BINARY" "$BIN_DIR/env-sync"
+    chmod +x "$BIN_DIR/env-sync"
 
-    # Make executable
-    chmod +x "$BIN_DIR"/env-sync*
+    # Clean up temporary files
+    rm -rf "$(dirname "$TEMP_BINARY")"
+
+    echo -e "${GREEN}✓ Binary downloaded and installed${NC}"
 else
-    # Build and install Go binary
-    if [[ "$REMOTE_MODE" == "true" ]]; then
-        # Remote mode - download pre-built binary
-        PLATFORM=$(detect_platform)
-        echo "Detected platform: $PLATFORM"
-        TEMP_BINARY=$(download_binary "$PLATFORM")
+    # Local mode - build from source
+    echo "Building Go binary..."
+    cd "$SCRIPT_DIR"
+    make build
 
-        # Install downloaded binary
-        cp "$TEMP_BINARY" "$BIN_DIR/env-sync"
-        chmod +x "$BIN_DIR/env-sync"
-
-        # Clean up temporary files
-        rm -rf "$(dirname "$TEMP_BINARY")"
-
-        echo -e "${GREEN}✓ Binary downloaded and installed${NC}"
-    else
-        # Local mode - build from source
-        echo "Building Go binary..."
-        cd "$SCRIPT_DIR"
-        make build
-
-        if [[ ! -f "$SCRIPT_DIR/target/env-sync" ]]; then
-            echo -e "${RED}✗ Build failed - binary not found${NC}"
-            exit 1
-        fi
-
-        # Install Go binary
-        cp "$SCRIPT_DIR/target/env-sync" "$BIN_DIR/env-sync"
-        chmod +x "$BIN_DIR/env-sync"
+    if [[ ! -f "$SCRIPT_DIR/target/env-sync" ]]; then
+        echo -e "${RED}✗ Build failed - binary not found${NC}"
+        exit 1
     fi
 
-    # Restart service if it was stopped
-    if [[ "$SERVICE_WAS_STOPPED" == "true" ]]; then
-        echo "Restarting service..."
-        "$BIN_DIR/env-sync" service restart >/dev/null 2>&1 || {
-            echo -e "${YELLOW}Note: Service was stopped but could not be restarted automatically${NC}"
-            echo "Run 'env-sync serve -d' to start the service manually"
-        }
-    fi
+    # Install Go binary
+    cp "$SCRIPT_DIR/target/env-sync" "$BIN_DIR/env-sync"
+    chmod +x "$BIN_DIR/env-sync"
 fi
 
-# Create symlinks for older macOS compatibility
-if [[ "$OS" == "Darwin" && "$INSTALL_LEGACY" == "true" ]]; then
-    # macOS uses BSD sed which has different syntax
-    # Update scripts to use gsed if available
-    if command -v gsed >/dev/null 2>&1; then
-        for script in "$BIN_DIR"/env-sync*; do
-            sed -i.bak 's/sed -i /gsed -i /g' "$script" 2>/dev/null || true
-            rm -f "$script.bak"
-        done
-    fi
+# Restart service if it was stopped
+if [[ "$SERVICE_WAS_STOPPED" == "true" ]]; then
+    echo "Restarting service..."
+    "$BIN_DIR/env-sync" service restart >/dev/null 2>&1 || {
+        echo -e "${YELLOW}Note: Service was stopped but could not be restarted automatically${NC}"
+        echo "Run 'env-sync serve -d' to start the service manually"
+    }
 fi
 
 echo -e "${GREEN}Installation complete!${NC}"
@@ -401,10 +300,8 @@ add_shell_integration
 # Post-install instructions
 echo "Next steps:"
 echo ""
-if [[ "$INSTALL_LEGACY" == "false" ]]; then
-    echo "env-sync v2.0 (Go binary) has been installed!"
-    echo ""
-fi
+echo "env-sync v2.0 (Go binary) has been installed!"
+echo ""
 echo "1. Initialize your secrets file:"
 echo "   env-sync init --encrypted"
 echo ""

@@ -27,7 +27,6 @@ services:
       - alpha-data:/home/envsync/.config/env-sync
     environment:
       - ENV_SYNC_DEBUG=1
-      - ENV_SYNC_USE_BASH=${ENV_SYNC_USE_BASH:-}
       - CONTAINER_NAME=alpha
     cap_add:
       - NET_ADMIN
@@ -52,7 +51,6 @@ services:
       - beta-data:/home/envsync/.config/env-sync
     environment:
       - ENV_SYNC_DEBUG=1
-      - ENV_SYNC_USE_BASH=${ENV_SYNC_USE_BASH:-}
       - CONTAINER_NAME=beta
     cap_add:
       - NET_ADMIN
@@ -77,7 +75,6 @@ services:
       - gamma-data:/home/envsync/.config/env-sync
     environment:
       - ENV_SYNC_DEBUG=1
-      - ENV_SYNC_USE_BASH=${ENV_SYNC_USE_BASH:-}
       - CONTAINER_NAME=gamma
     cap_add:
       - NET_ADMIN

@@ -42,22 +42,3 @@ load 'test_helper'
     run docker exec "$CONTAINER_ALPHA" env-sync path --invalid
     [ "$status" -ne 0 ]
 }
-
-# Test bash version if ENV_SYNC_USE_BASH is set
-@test "bash version: env-sync path returns secrets file path" {
-    if [[ "${ENV_SYNC_USE_BASH}" != "true" ]]; then
-        skip "Not testing bash version"
-    fi
-    run docker exec "$CONTAINER_ALPHA" env-sync path
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ ^/.+\.secrets\.env$ ]]
-}
-
-@test "bash version: env-sync path --backup returns backup directory path" {
-    if [[ "${ENV_SYNC_USE_BASH}" != "true" ]]; then
-        skip "Not testing bash version"
-    fi
-    run docker exec "$CONTAINER_ALPHA" env-sync path --backup
-    [ "$status" -eq 0 ]
-    [[ "$output" =~ ^/.+/backups$ ]]
-}

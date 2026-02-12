@@ -56,7 +56,7 @@ src/
     server/             # HTTP server for /health and /secrets.env
     sync/               # sync orchestration and merge strategy
     cron/               # crontab install/remove/show
-    compat/             # formatting of legacy output and warnings
+    compat/             # formatting of older output and warnings
 ```
 
 Notes:

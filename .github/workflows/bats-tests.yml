@@ -12,44 +12,6 @@ permissions:
   contents: read
 
 jobs:
-  bash-tests:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install GNU parallel
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y parallel
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install BATS via NPM
-        run: npm install -g bats
-
-      - name: Verify BATS installation
-        run: bats --version
-
-      - name: Run Docker Tests (Bash)
-        env:
-          ENV_SYNC_SKIP_GO_BUILD: "true"
-          ENV_SYNC_USE_BASH: "true"
-        run: ./tests/test-dockers.sh --skip-go-build --debug
-
-      - name: Verify Version (Bash)
-        env:
-          ENV_SYNC_SKIP_GO_BUILD: "true"
-          ENV_SYNC_USE_BASH: "true"
-        run: |
-          ./tests/start-test-env.sh
-          docker exec -e ENV_SYNC_USE_BASH=true env-sync-alpha env-sync --version
-          ./tests/start-test-env.sh --stop
-
   go-tests:
     runs-on: ubuntu-latest
 

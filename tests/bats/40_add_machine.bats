@@ -14,7 +14,6 @@ load 'test_helper'
         --network env-sync-test \
         --ip 172.20.0.5 \
         -v "$DOCKER_DIR/ssh-keys:/mnt/ssh-keys:ro" \
-        -e ENV_SYNC_USE_BASH="${ENV_SYNC_USE_BASH:-}" \
         -e ENV_SYNC_GO_BIN="${ENV_SYNC_GO_BIN:-}" \
         -e ENV_SYNC_DEBUG=1 \
         -e CONTAINER_NAME=delta \

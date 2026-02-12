@@ -37,13 +37,9 @@ RUN echo 'envsync ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/envsync && \
 RUN sed -i 's/#enable-dbus=yes/enable-dbus=yes/' /etc/avahi/avahi-daemon.conf
 RUN sed -i 's/hosts:.*files dns/hosts: files mdns_minimal [NOTFOUND=return] dns mdns/' /etc/nsswitch.conf
 
-# Copy env-sync binaries (built from source)
-# Legacy bash scripts (v1.x)
-COPY legacy/bin/ /usr/local/bin/
-COPY legacy/lib/ /usr/local/lib/
-# Go binary (v2.0) - only copied if building with Go
+# Copy env-sync binary (built from source)
 ARG ENV_SYNC_BIN=target/env-sync
-COPY ${ENV_SYNC_BIN} /usr/local/bin/env-sync-go
+COPY ${ENV_SYNC_BIN} /usr/local/bin/env-sync
 
 # Make scripts executable
 RUN chmod +x /usr/local/bin/env-sync*

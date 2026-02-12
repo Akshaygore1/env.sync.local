@@ -22,9 +22,6 @@ Distributed secrets synchronization tool for local networks with **AGE encryptio
 - **Improved Performance**: Faster sync operations and better resource usage
 - **Better Cross-Platform**: More consistent behavior across Linux, macOS, and Windows (WSL2)
 - **Easier Installation**: Just build and install one binary instead of multiple scripts
-- **Backward Compatible**: v2.0 can sync with v1.x bash-based installations
-
-**Legacy Support**: The bash-based v1.x version is still available in the `legacy/` directory and can be installed with `./install.sh --legacy`
 
 ## 🆕 What's New in v1.0 - Encryption Support
 
@@ -103,9 +100,6 @@ sudo ./install.sh
 
 # Or install to ~/.local/bin (user-only)
 ./install.sh --user
-
-# For legacy bash version (v1.x)
-sudo ./install.sh --legacy
 ```
 
 **Note**: The installation script automatically handles running services. If env-sync is running as a background service (via `env-sync serve -d`), the installer will:
@@ -577,9 +571,6 @@ env-sync/
 │   └── go.mod                 # Go module definition
 ├── target/
 │   └── env-sync               # Built Go binary
-├── legacy/                    # Legacy bash v1.x (for reference)
-│   ├── bin/                   # Bash scripts
-│   └── lib/                   # Bash libraries
 ├── install.sh                 # Installation script
 ├── Makefile                   # Build automation
 ├── README.md                  # This file
@@ -600,18 +591,6 @@ make install
 
 # Or use install.sh
 ./install.sh --user
-```
-
-### Legacy Bash Version
-
-To use the legacy bash-based version (v1.x):
-
-```bash
-# Install legacy version
-./install.sh --legacy
-
-# Or force use of bash scripts even if Go binary is present
-ENV_SYNC_USE_BASH=true env-sync status
 ```
 
 ## License

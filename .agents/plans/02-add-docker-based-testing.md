@@ -833,7 +833,7 @@ docker exec env-sync-alpha ls -la ~/.config/env-sync/keys/
 - **Performance Testing**: Measure sync latency with 1000+ secrets
 - **Conflict Resolution**: Test simultaneous edits on multiple nodes
 - **Encryption Rotation**: Test key rotation scenarios
-- **Upgrade Testing**: Test v1.x to v2.0 migration
+- **Upgrade Testing**: Test pre-v2 to v2.0 migration
 
 ### Phase 7: Extended Scenarios
 

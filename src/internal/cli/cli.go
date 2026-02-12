@@ -31,27 +31,13 @@ func Run(argv []string) int {
 	if len(argv) == 0 {
 		return 1
 	}
-	base := filepath.Base(argv[0])
 	args := argv[1:]
 
 	// Handle global --verbose flag before routing to subcommands
 	args = handleGlobalFlags(args)
 
-	switch base {
-	case "env-sync-client":
-		return runSync(args, "env-sync-client", true)
-	case "env-sync-discover":
-		return runDiscover(args, "env-sync-discover")
-	case "env-sync-serve":
-		return runServe(args, "env-sync-serve")
-	case "env-sync-key":
-		return runKey(args)
-	case "env-sync-load":
-		return runLoad(args)
-	}
-
 	if len(args) == 0 {
-		return runSync(args, "env-sync sync", false)
+		return runSync(args, "env-sync sync")
 	}
 
 	if args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
@@ -64,14 +50,14 @@ func Run(argv []string) int {
 		return 0
 	}
 
-	// Handle legacy -v as version (but --verbose takes precedence in handleGlobalFlags)
+	// Handle -v as version (but --verbose takes precedence in handleGlobalFlags)
 	if args[0] == "-v" && !config.IsVerbose() {
 		fmt.Println("env-sync version " + config.Version)
 		return 0
 	}
 
 	if strings.HasPrefix(args[0], "-") {
-		return runSync(args, "env-sync sync", false)
+		return runSync(args, "env-sync sync")
 	}
 
 	command := args[0]
@@ -79,7 +65,7 @@ func Run(argv []string) int {
 
 	switch command {
 	case "sync", "s":
-		return runSync(args, "env-sync sync", false)
+		return runSync(args, "env-sync sync")
 	case "serve", "server":
 		return runServe(args, "env-sync serve")
 	case "discover", "d":
@@ -264,7 +250,7 @@ Environment Variables:
 `)
 }
 
-func runSync(args []string, usageName string, isClient bool) int {
+func runSync(args []string, usageName string) int {
 	opts := syncer.Options{}
 	remaining := []string{}
 	for i := 0; i < len(args); i++ {
@@ -280,11 +266,7 @@ func runSync(args []string, usageName string, isClient bool) int {
 		case "--insecure-http":
 			opts.InsecureHTTP = true
 		case "-h", "--help":
-			if isClient {
-				fmt.Println("Usage: " + usageName + " [options] [hostname]")
-			} else {
-				fmt.Println("Usage: " + usageName + " [options]")
-			}
+			fmt.Println("Usage: " + usageName + " [options] [hostname]")
 			fmt.Println("")
 			fmt.Println("Syncs secrets from peers using SCP (SSH) by default.")
 			fmt.Println("")
@@ -294,22 +276,13 @@ func runSync(args []string, usageName string, isClient bool) int {
 			fmt.Println("  --force-pull           Force overwrite all local secrets from specified host")
 			fmt.Println("  -q, --quiet            Quiet mode")
 			fmt.Println("  --insecure-http        Use insecure HTTP instead of SCP (not recommended)")
-			if isClient {
-				fmt.Println("  hostname               Specific hostname to sync from")
-			}
+			fmt.Println("  hostname               Specific hostname to sync from")
 			fmt.Println("")
 			fmt.Println("Examples:")
-			if isClient {
-				fmt.Println("  env-sync-client                           # Sync from newest peer via SCP")
-				fmt.Println("  env-sync-client hostname.local            # Sync from specific host via SCP")
-				fmt.Println("  env-sync-client --force-pull hostname.local   # Force overwrite from specific host")
-				fmt.Println("  env-sync-client --insecure-http           # Sync using HTTP (INSECURE)")
-			} else {
-				fmt.Println("  env-sync sync                           # Sync via SCP (secure)")
-				fmt.Println("  env-sync sync mbp16.local               # Sync from specific host")
-				fmt.Println("  env-sync sync --force-pull mbp16.local  # Force overwrite from specific host")
-				fmt.Println("  env-sync sync --insecure-http           # Sync via HTTP (INSECURE)")
-			}
+			fmt.Println("  env-sync sync                           # Sync via SCP (secure)")
+			fmt.Println("  env-sync sync mbp16.local               # Sync from specific host")
+			fmt.Println("  env-sync sync --force-pull mbp16.local  # Force overwrite from specific host")
+			fmt.Println("  env-sync sync --insecure-http           # Sync via HTTP (INSECURE)")
 			return 0
 		default:
 			if strings.HasPrefix(args[i], "-") {

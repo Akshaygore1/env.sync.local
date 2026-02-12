@@ -163,13 +163,13 @@ func TestRecipientsContain_UsesRecipientMatches(t *testing.T) {
 	}
 }
 
-func TestGetRecipientsFromFile_LegacyRecipientsFallback(t *testing.T) {
+func TestGetRecipientsFromFile_RecipientsFieldFallback(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "secrets.env")
 	content := `# === ENV_SYNC_METADATA ===
 # VERSION: 2.0.0
 # TIMESTAMP: 2025-02-08T15:30:45Z
-# HOST: legacy.local
+# HOST: fallback.local
 # MODIFIED: 2025-02-08T15:30:45Z
 # ENCRYPTED: true
 # RECIPIENTS: age1abc123, age1def456
@@ -180,7 +180,7 @@ FOO="bar" # ENVSYNC_UPDATED_AT=2025-02-08T15:30:45Z
 # === ENV_SYNC_FOOTER ===
 # VERSION: 2.0.0
 # TIMESTAMP: 2025-02-08T15:30:45Z
-# HOST: legacy.local
+# HOST: fallback.local
 # === END_FOOTER ===`
 	if err := os.WriteFile(file, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)

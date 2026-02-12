@@ -11,7 +11,6 @@
 #   --debug         Enable debug mode (print outputs of failures)
 #   --filter PATTERN Run only tests matching the pattern
 #   --formatter FMT  Output format (pretty, tap, junit, etc.) [default: pretty]
-#   --skip-go-build Skip building the Go binary (use bash scripts only)
 #   --help          Show this help message
 #
 
@@ -36,13 +35,9 @@ FILTER=""
 FORMATTER="pretty"
 DEBUG_MODE=0
 SHOW_HELP=0
-SKIP_GO_BUILD=0
 # Default to tap in any CI environment
 if [ "${CI:-}" = "true" ]; then
     FORMATTER="tap"
-fi
-if [ "${ENV_SYNC_SKIP_GO_BUILD:-}" = "true" ]; then
-    SKIP_GO_BUILD=1
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -67,10 +62,6 @@ while [[ $# -gt 0 ]]; do
             FORMATTER="$2"
             shift 2
             ;;
-        --skip-go-build)
-            SKIP_GO_BUILD=1
-            shift
-            ;;
         --help|-h)
             SHOW_HELP=1
             shift
@@ -94,7 +85,6 @@ if [ $SHOW_HELP -eq 1 ]; then
     echo "  --setup-only      Only setup the test environment, don't run tests"
     echo "  --filter PATTERN  Run only tests matching the pattern"
     echo "  --formatter FMT   Output format (pretty, tap, junit, etc.) [default: $FORMATTER]"
-    echo "  --skip-go-build   Skip building the Go binary (use bash scripts only)"
     echo "  --help, -h        Show this help message"
     echo ""
     echo "Examples:"
@@ -109,22 +99,10 @@ fi
 
 # Set up binary paths
 ENV_SYNC_GO_BIN="${ENV_SYNC_GO_BIN:-target/env-sync}"
-ENV_SYNC_BASH_BIN="${ENV_SYNC_BASH_BIN:-legacy/bin/env-sync}"
-
-# Determine which binary to use based on mode
-if [ $SKIP_GO_BUILD -eq 1 ]; then
-    ENV_SYNC_BIN="$ENV_SYNC_BASH_BIN"
-else
-    ENV_SYNC_BIN="$ENV_SYNC_GO_BIN"
-fi
+ENV_SYNC_BIN="$ENV_SYNC_GO_BIN"
 
 export ENV_SYNC_GO_BIN
-export ENV_SYNC_BASH_BIN
 export ENV_SYNC_BIN
-
-if [ $SKIP_GO_BUILD -eq 1 ] && [ -z "${ENV_SYNC_USE_BASH:-}" ]; then
-    export ENV_SYNC_USE_BASH="true"
-fi
 
 # Function to print colored messages
 print_info() {
@@ -208,11 +186,7 @@ build_go_binary() {
 setup_environment() {
     print_info "Setting up test environment..."
 
-    if [ $SKIP_GO_BUILD -eq 0 ]; then
-        build_go_binary
-    else
-        print_info "Skipping Go build (--skip-go-build)"
-    fi
+    build_go_binary
 
     # Generate SSH keys
     print_info "Generating SSH keys..."

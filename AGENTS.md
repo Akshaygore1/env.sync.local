@@ -57,16 +57,6 @@ env.sync.local/
 │   └── go.sum                 # Go module checksums
 ├── target/                    # Build output
 │   └── env-sync               # Compiled Go binary
-├── legacy/                    # Legacy bash version (v1.x)
-│   ├── bin/                   # Bash scripts
-│   │   ├── env-sync           # Main CLI entry point
-│   │   ├── env-sync-discover  # mDNS peer discovery tool
-│   │   ├── env-sync-client    # HTTP client for fetching secrets
-│   │   ├── env-sync-serve     # HTTP server for serving secrets
-│   │   ├── env-sync-key       # Key management CLI
-│   │   └── env-sync-load      # Shell integration helper
-│   └── lib/                   # Shared libraries
-│       └── common.sh          # Common functions & utilities
 └── tests/                     # Integration tests (BATS)
     ├── bats/                  # BATS test files
     ├── docker/                # Docker test environment
@@ -257,13 +247,6 @@ DATABASE_URL="YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+..." # ENVSYNC_UPDATED_AT=2025-02-
 - `golang.org/x/crypto` - Cryptographic primitives
 - `github.com/kardianos/service` - Cross-platform service management
 
-### Legacy (v1.x Bash) - Optional
-- `bash` (v4.0+)
-- `curl` (for HTTP requests)
-- `nc` or `netcat` (for HTTP server)
-- `age` and `age-keygen` (external binaries)
-- `avahi-browse` (Linux) or `dns-sd` (macOS)
-
 ## Data Flow
 
 ### Discovery Flow
@@ -340,21 +323,12 @@ sudo make install
 
 # Install using install.sh
 ./install.sh --user
-
-# Build legacy bash version
-./install.sh --legacy
 ```
 
 ### Testing
 ```bash
-# Run all integration tests (Go + legacy)
+# Run all integration tests
 ./tests/test-dockers.sh
-
-# Run Go-only tests
-ENV_SYNC_USE_BASH=false ./tests/test-dockers.sh
-
-# Run legacy bash-only tests
-ENV_SYNC_SKIP_GO_BUILD=true ENV_SYNC_USE_BASH=true ./tests/test-dockers.sh --skip-go-build
 
 # Run Go unit tests
 cd src && go test ./...
@@ -363,8 +337,6 @@ cd src && go test ./...
 ### Test Environment
 - Uses Docker containers to simulate multiple machines
 - BATS (Bash Automated Testing System) for integration tests
-- Tests both Go and legacy bash implementations
-- Validates interoperability between versions
 
 ## Version History & Roadmap
 
@@ -372,22 +344,7 @@ cd src && go test ./...
 - ✅ Complete rewrite in Go
 - ✅ Built-in AGE encryption (no external age binary needed)
 - ✅ Single static binary
-- ✅ Backward compatible with v1.x bash version
-- ✅ All v1.x features preserved
 - ✅ Improved performance and reliability
-
-### v1.0.0 (Legacy - in legacy/ directory)
-- ✅ Bash-based implementation
-- ✅ AGE encryption (external binary)
-- ✅ SCP/SSH sync (secure by default)
-- ✅ mDNS discovery (Linux/macOS)
-- ✅ HTTP server/client (insecure fallback)
-- ✅ Version comparison
-- ✅ Backup system
-- ✅ Cron automation
-- ✅ Multi-recipient encryption
-- ✅ Remote trigger for re-encryption
-- ✅ CLI secret management
 
 ### Future Enhancements
 - [ ] Native Windows support (no WSL)
@@ -457,16 +414,10 @@ cd src && go test ./...
 When making changes to v2.0:
 1. Update relevant documentation (README, AGENTS.md)
 2. Test on both Linux and macOS if possible
-3. Maintain backward compatibility with v1.x
-4. Follow Go code style guidelines
-5. Add unit tests for new functionality
-6. Run integration tests before submitting
-7. Update version number if needed
-
-For legacy (v1.x) changes:
-- Legacy code is in `legacy/` directory
-- Only critical bug fixes should go to legacy
-- New features should be implemented in v2.0
+3. Follow Go code style guidelines
+4. Add unit tests for new functionality
+5. Run integration tests before submitting
+6. Update version number if needed
 
 ## Resources
 
@@ -484,4 +435,3 @@ For implementation questions:
 2. Check README.md for user documentation
 3. Review this file (AGENTS.md) for technical details
 4. Look at Go source code in `src/` for current implementation
-5. Check `legacy/` for bash v1.x reference implementation

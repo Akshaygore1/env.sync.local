@@ -456,7 +456,7 @@ Encrypted files use metadata flag:
 # ENCRYPTED: true
 ```
 
-Old clients (v1.x) see:
+Older clients see:
 - Unknown metadata field (ignored)
 - Binary content after header (treated as corrupt)
 - Error: "Please upgrade env-sync to support encrypted files"
