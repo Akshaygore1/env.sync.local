@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Test helper for env-sync Docker tests
+# Test helper for env-sync Docker tests (v3.0 — 3-mode support)
 # This file is sourced by all .bats test files
 
 # Setup function - runs before each test
@@ -38,22 +38,22 @@ teardown() {
     : # Nothing to clean up per-test, full cleanup in 99_teardown.bats
 }
 
-# Helper: Check if Docker is available
+# ─────────────────────────────────────────────────────────────
+# Docker helpers
+# ─────────────────────────────────────────────────────────────
+
 check_docker() {
     if ! command -v docker &> /dev/null; then
         echo "ERROR: Docker is not installed or not in PATH"
         return 1
     fi
-
     if ! docker info &> /dev/null; then
         echo "ERROR: Docker daemon is not running"
         return 1
     fi
-
     return 0
 }
 
-# Helper: Check if docker-compose is available
 check_docker_compose() {
     if command -v docker-compose &> /dev/null; then
         export DOCKER_COMPOSE="docker-compose"
@@ -63,11 +63,13 @@ check_docker_compose() {
         echo "ERROR: docker-compose is not installed"
         return 1
     fi
-
     return 0
 }
 
-# Helper: Wait for containers to be ready
+# ─────────────────────────────────────────────────────────────
+# Container lifecycle helpers
+# ─────────────────────────────────────────────────────────────
+
 wait_for_containers() {
     local timeout=${1:-60}
     local start_time=$(date +%s)
@@ -81,7 +83,6 @@ wait_for_containers() {
             return 1
         fi
 
-        # Check if all containers are running
         local all_running=true
         for container in $CONTAINER_ALPHA $CONTAINER_BETA $CONTAINER_GAMMA; do
             if ! docker ps --format "{{.Names}}" | grep -q "^${container}$"; then
@@ -91,7 +92,6 @@ wait_for_containers() {
         done
 
         if [ "$all_running" = true ]; then
-            # Additional check: wait a bit for services to start
             sleep 3
             return 0
         fi
@@ -100,7 +100,6 @@ wait_for_containers() {
     done
 }
 
-# Helper: Wait for a single container to be running
 wait_for_container() {
     local container="$1"
     local timeout=${2:-30}
@@ -123,7 +122,6 @@ wait_for_container() {
     done
 }
 
-# Helper: Wait for a container to be removed
 wait_for_container_removed() {
     local container="$1"
     local timeout=${2:-30}
@@ -146,7 +144,6 @@ wait_for_container_removed() {
     done
 }
 
-# Helper: Wait for all containers to be removed
 wait_for_containers_removed() {
     local timeout=${1:-30}
     shift
@@ -177,7 +174,6 @@ wait_for_containers_removed() {
     done
 }
 
-# Helper: Wait for a network to be removed
 wait_for_network_removed() {
     local network="$1"
     local timeout=${2:-30}
@@ -200,7 +196,10 @@ wait_for_network_removed() {
     done
 }
 
-# Helper: Run command in container as envsync user
+# ─────────────────────────────────────────────────────────────
+# Container execution helpers
+# ─────────────────────────────────────────────────────────────
+
 container_exec() {
     local container="$1"
     shift
@@ -215,7 +214,35 @@ container_exec() {
     fi
 }
 
-# Helper: Initialize env-sync in a container
+# ─────────────────────────────────────────────────────────────
+# Mode management helpers
+# ─────────────────────────────────────────────────────────────
+
+# Set mode on a container
+set_mode() {
+    local container="$1"
+    local mode="$2"
+    container_exec "$container" env-sync mode set "$mode" --yes
+}
+
+# Get current mode from a container
+get_mode() {
+    local container="$1"
+    container_exec "$container" env-sync mode get 2>/dev/null | head -1 | awk '{print $NF}'
+}
+
+# Set mode on all three primary containers
+set_mode_all() {
+    local mode="$1"
+    for container in $CONTAINER_ALPHA $CONTAINER_BETA $CONTAINER_GAMMA; do
+        set_mode "$container" "$mode"
+    done
+}
+
+# ─────────────────────────────────────────────────────────────
+# Secrets management helpers
+# ─────────────────────────────────────────────────────────────
+
 init_container() {
     local container="$1"
     local encrypted="${2:-false}"
@@ -224,7 +251,6 @@ init_container() {
     container_exec "$container" rm -f /home/envsync/.secrets.env
 
     if [ "$encrypted" = true ]; then
-        # For encrypted init, also remove any existing keys to ensure fresh generation
         container_exec "$container" rm -f /home/envsync/.config/env-sync/keys/age_key
         container_exec "$container" rm -f /home/envsync/.config/env-sync/keys/age_key.pub
         container_exec "$container" env-sync init --encrypted
@@ -233,7 +259,6 @@ init_container() {
     fi
 }
 
-# Helper: Add secret to container
 add_secret() {
     local container="$1"
     local key="$2"
@@ -242,7 +267,6 @@ add_secret() {
     container_exec "$container" env-sync add "$key=$value"
 }
 
-# Helper: Get secret from container
 get_secret() {
     local container="$1"
     local key="$2"
@@ -250,7 +274,6 @@ get_secret() {
     container_exec "$container" env-sync show "$key" 2>/dev/null || echo ""
 }
 
-# Helper: Trigger sync on container
 trigger_sync() {
     local container="$1"
     local force="${2:--f}"
@@ -258,7 +281,6 @@ trigger_sync() {
     container_exec "$container" env-sync sync "$force"
 }
 
-# Helper: Verify secret matches expected value
 verify_secret() {
     local container="$1"
     local key="$2"
@@ -269,21 +291,155 @@ verify_secret() {
     [[ "$actual" = "$expected" ]]
 }
 
-# Helper: Run multiple commands in parallel
+# ─────────────────────────────────────────────────────────────
+# HTTP server helpers (Mode A)
+# ─────────────────────────────────────────────────────────────
+
+# Start the HTTP server on a container (background)
+start_server() {
+    local container="$1"
+    local port="${2:-5739}"
+
+    # Start server in background
+    docker exec -d --user envsync "$container" env-sync serve -p "$port" -q
+    sleep 2 # Give server time to start
+}
+
+# Stop the HTTP server on a container
+stop_server() {
+    local container="$1"
+    container_exec "$container" pkill -f "env-sync serve" 2>/dev/null || true
+    sleep 1
+}
+
+# Sync using HTTP (mode A)
+trigger_sync_http() {
+    local container="$1"
+    container_exec "$container" env-sync sync --insecure-http
+}
+
+# ─────────────────────────────────────────────────────────────
+# Key management helpers (Mode B)
+# ─────────────────────────────────────────────────────────────
+
+get_pubkey() {
+    local container="$1"
+    container_exec "$container" env-sync key export 2>/dev/null || echo ""
+}
+
+import_pubkey() {
+    local container="$1"
+    local pubkey="$2"
+    local hostname="$3"
+
+    container_exec "$container" env-sync key import "$pubkey" "$hostname"
+}
+
+# ─────────────────────────────────────────────────────────────
+# Peer management helpers (Mode C)
+# ─────────────────────────────────────────────────────────────
+
+# Create a peer invite on a container
+peer_invite() {
+    local container="$1"
+    local expiry="${2:-24h}"
+
+    container_exec "$container" env-sync peer invite --expiry "$expiry" 2>/dev/null
+}
+
+# Extract invite token from peer invite output
+extract_invite_token() {
+    local output="$1"
+    echo "$output" | grep "Token:" | awk '{print $2}'
+}
+
+# Request peer access
+peer_request() {
+    local container="$1"
+    local host="$2"
+    local token="$3"
+
+    container_exec "$container" env-sync peer request "$host" "$token"
+}
+
+# Approve a peer
+peer_approve() {
+    local container="$1"
+    local peer_id="$2"
+
+    container_exec "$container" env-sync peer approve "$peer_id"
+}
+
+# Revoke a peer
+peer_revoke() {
+    local container="$1"
+    local peer_id="$2"
+
+    container_exec "$container" env-sync peer revoke "$peer_id"
+}
+
+# List peers
+peer_list() {
+    local container="$1"
+    container_exec "$container" env-sync peer list 2>/dev/null
+}
+
+# Show trust info
+peer_trust_show() {
+    local container="$1"
+    container_exec "$container" env-sync peer trust show 2>/dev/null
+}
+
+# Exchange TLS certs between containers for bidirectional mTLS
+# Each container needs the other containers' transport certs in its trusted dir
+exchange_tls_certs() {
+    local containers=("$@")
+    local cert_dir="/home/envsync/.config/env-sync/tls"
+    local trusted_dir="$cert_dir/trusted"
+
+    for src in "${containers[@]}"; do
+        local src_name=$(docker exec "$src" hostname | tr -d '\n')
+        local src_cert=$(docker exec "$src" cat "$cert_dir/transport.crt" 2>/dev/null)
+
+        for dst in "${containers[@]}"; do
+            if [ "$src" != "$dst" ]; then
+                container_exec "$dst" mkdir -p "$trusted_dir"
+                docker exec "$dst" bash -c "cat > $trusted_dir/${src_name}.crt" <<< "$src_cert"
+            fi
+        done
+    done
+}
+
+# Start mTLS server (for mode C)
+start_mtls_server() {
+    local container="$1"
+    local port="${2:-5739}"
+
+    docker exec -d --user envsync "$container" env-sync serve -p "$port" -q
+    sleep 2
+}
+
+# ─────────────────────────────────────────────────────────────
+# Parallel & utility helpers
+# ─────────────────────────────────────────────────────────────
+
 parallel_run() {
     local jobs="${ENV_SYNC_PARALLEL_JOBS:-4}"
 
     export -f container_exec
     export -f trigger_sync
+    export -f trigger_sync_http
     export -f get_secret
     export -f get_pubkey
     export -f import_pubkey
     export -f verify_secret
+    export -f set_mode
+    export -f start_server
+    export -f stop_server
 
     parallel --halt now,fail=1 -k -j "$jobs" -- bash -c '{}' ::: "$@"
 }
 
-# Helper: Verify secret exists and matches on all containers
 verify_secret_all() {
     local key="$1"
     local expected="$2"
@@ -301,31 +457,27 @@ verify_secret_all() {
     return $failed
 }
 
-# Helper: Get AGE public key from container
-get_pubkey() {
-    local container="$1"
-    container_exec "$container" env-sync key export 2>/dev/null || echo ""
-}
-
-# Helper: Import public key to container
-import_pubkey() {
-    local container="$1"
-    local pubkey="$2"
-    local hostname="$3"
-
-    container_exec "$container" env-sync key import "$pubkey" "$hostname"
-}
-
-# Helper: Clean up all test containers and volumes
 cleanup_all() {
     echo "Cleaning up test environment..."
-
-    # Stop and remove containers
     $DOCKER_COMPOSE -f "$DOCKER_DIR/docker-compose.yml" down -v 2>/dev/null || true
-
-    # Remove delta if it exists
     docker stop "$CONTAINER_DELTA" 2>/dev/null || true
     docker rm "$CONTAINER_DELTA" 2>/dev/null || true
-
     echo "Cleanup complete"
+}
+
+# Reset containers to clean state (remove all env-sync data)
+reset_containers() {
+    for container in $CONTAINER_ALPHA $CONTAINER_BETA $CONTAINER_GAMMA; do
+        container_exec "$container" rm -rf /home/envsync/.secrets.env 2>/dev/null || true
+        container_exec "$container" rm -rf /home/envsync/.config/env-sync/keys/age_key 2>/dev/null || true
+        container_exec "$container" rm -rf /home/envsync/.config/env-sync/keys/age_key.pub 2>/dev/null || true
+        container_exec "$container" rm -rf /home/envsync/.config/env-sync/keys/known_hosts/ 2>/dev/null || true
+        container_exec "$container" rm -rf /home/envsync/.config/env-sync/peers/ 2>/dev/null || true
+        container_exec "$container" rm -rf /home/envsync/.config/env-sync/identity/ 2>/dev/null || true
+        container_exec "$container" rm -rf /home/envsync/.config/env-sync/invites/ 2>/dev/null || true
+        container_exec "$container" rm -rf /home/envsync/.config/env-sync/events/ 2>/dev/null || true
+        container_exec "$container" rm -f /home/envsync/.config/env-sync/mode 2>/dev/null || true
+        container_exec "$container" rm -rf /home/envsync/.config/env-sync/backups/ 2>/dev/null || true
+        stop_server "$container" 2>/dev/null || true
+    done
 }

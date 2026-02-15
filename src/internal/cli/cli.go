@@ -17,13 +17,17 @@ import (
 	"envsync/internal/config"
 	"envsync/internal/cron"
 	"envsync/internal/discovery"
+	"envsync/internal/identity"
 	"envsync/internal/keys"
 	"envsync/internal/logging"
 	"envsync/internal/metadata"
+	modeutil "envsync/internal/mode"
+	"envsync/internal/peer"
 	"envsync/internal/secrets"
 	"envsync/internal/server"
 	svcmgr "envsync/internal/service"
 	syncer "envsync/internal/sync"
+	mtlstransport "envsync/internal/transport/mtls"
 	sshtransport "envsync/internal/transport/ssh"
 )
 
@@ -80,6 +84,10 @@ func Run(argv []string) int {
 		return runCron(args)
 	case "key", "k":
 		return runKey(args)
+	case "mode", "m":
+		return runMode(args)
+	case "peer":
+		return runPeer(args)
 	case "load", "l":
 		return runLoad(args)
 	case "add", "a":
@@ -121,131 +129,77 @@ func handleGlobalFlags(args []string) []string {
 }
 
 func showHelp() {
-	fmt.Print(`env-sync - Distributed secrets synchronization tool
+	fmt.Print(`env-sync v3.0 - Distributed secrets synchronization tool
 
 Usage: env-sync [global options] [command] [options]
 
 Global Options:
-  --verbose                Print verbose output including commands executed
+  --verbose                Print verbose output
 
-SECURITY NOTICE:
-  By default, env-sync uses SCP (SSH) for secure peer-to-peer synchronization.
-  This requires SSH keys to be set up between machines.
-  
-  HTTP mode (--insecure-http) is available as a fallback but is INSECURE:
-  • Secrets transmitted in plaintext
-  • Accessible to any device on the network
-  • No authentication required
+SECURITY MODEL (v3.0):
+  env-sync supports three operation modes:
+
+  trusted-owner-ssh (default)  Same-owner devices, SCP/SSH transport
+  secure-peer                  Cross-owner, HTTPS+mTLS, encrypted storage
+  dev-plaintext-http           Debug only, plaintext HTTP (INSECURE)
+
+  Use 'env-sync mode get' to see current mode.
+  Use 'env-sync mode set <mode>' to change.
 
 Commands:
   sync [options]           Sync secrets from network (default)
     Options:
       -a, --all            Sync from all discovered peers
       -f, --force          Force sync even if local is newer
+      --force-pull HOST    Force overwrite local with remote
       -q, --quiet          Quiet mode
-      --insecure-http      Use insecure HTTP instead of SCP (not recommended)
-      -h, --help           Show help
 
-  serve [options]          Start HTTP server (for HTTP mode only)
+  serve [options]          Start server (HTTP or HTTPS+mTLS based on mode)
     Options:
-      -p, --port PORT      Port to listen on (default: 5739)
-      -d, --daemon         Run as daemon service (auto-restart, 30m sync, mDNS)
+      -p, --port PORT      Port (default: 5739)
+      -d, --daemon         Run as daemon service
       -q, --quiet          Quiet mode
-      -h, --help           Show help
 
   discover [options]       Discover peers on network
-    Options:
-      -t, --timeout SECS   Discovery timeout (default: 5)
-      -q, --quiet          Only output hostnames
-      -v, --verbose        Verbose output
-      --ssh                Filter for hosts with SSH access
-      -h, --help           Show help
-
   status                   Show sync status and peer information
-
   init                     Initialize new secrets file
-
   restore [n]              Restore from backup (n=1-5, default: 1)
 
+  mode [subcommand]        Manage operation mode
+    get                    Show current mode
+    set <mode> [options]   Set mode
+      --yes                Confirm security-sensitive changes
+      --prune-old-material Remove old mode's security material
+
+  peer [subcommand]        Manage peers (secure-peer mode)
+    invite [options]       Create enrollment invite
+      --expiry <duration>  Token expiry (default: 24h)
+    request <host> <token> Request access to a peer using invite token
+    approve <peer-id>      Approve a pending peer
+    revoke <peer-id>       Revoke a peer's access
+    list [options]         List known peers
+      --pending            Show only pending peers
+    trust show             Show trust information
+
   key [subcommand]         Manage AGE encryption keys
-    Subcommands:
-      show                 Show this machine's public key
-      export               Export public key
-      import <pubkey>      Import a peer's public key
-      list                 List all cached public keys
-      request-access       Request access for new machine
-      grant-access         Grant access to requesting machine
+    show / export / import / list / request-access / grant-access
 
+  add KEY="value"          Add or update a secret
+  remove KEY               Remove a secret
+  list                     List all secret keys
+  show KEY                 Show value of a key
   load [options]           Load secrets for shell integration
-    Options:
-      --format <env|json>  Output format (default: env)
-
-  add <KEY="value">         Add or update a secret key-value pair
-    Example: env-sync add OPENAI_API_KEY="sk-..."
-
-  remove <KEY>              Remove a secret key from the file
-    Example: env-sync remove OPENAI_API_KEY
-
-  list                     List all secret keys (values hidden)
-
-  show <KEY>                Show value of a specific key
-
-  path [options]            Show paths to env-sync files
-    Options:
-      --backup             Show backup directory path
-
-  cron [options]           Setup cron job for periodic sync
-    Options:
-      --install            Install cron job (default: 30min interval)
-      --interval <mins>    Set interval in minutes (use with --install)
-      --remove             Remove cron job
-      --show               Show current cron job
-
-  service [subcommand]     Manage env-sync background service
-    Subcommands:
-      stop                 Stop the running service
-      restart              Restart the service
-      uninstall            Uninstall the service completely
-
-  help                     Show this help message
+  path [options]           Show env-sync file paths
+  cron [options]           Setup periodic sync cron job
+  service [subcommand]     Manage background service
+  help                     Show this help
 
 Examples:
-  env-sync                           # Run sync via SCP (secure, default)
-  env-sync serve -d                  # Start HTTP server (for HTTP mode)
-  env-sync discover                  # Find peers on network
-  env-sync status                    # Show current status
-  env-sync init                      # Create new secrets file
-
-Setup Instructions:
-  1. Ensure SSH keys are set up between machines:
-     ssh-copy-id other-machine.local
-  
-  2. Initialize with encryption:
-     env-sync init --encrypted
-     env-sync                         # Uses SCP with encryption
-  
-  3. Adding a new machine to existing fleet:
-     # On new machine (D):
-     env-sync init --encrypted
-     env-sync key request-access --trigger beelink.local
-     env-sync                         # Now can decrypt and sync
-  
-  4. Shell integration (add to .bashrc):
-     eval "$(env-sync load 2>/dev/null)"
-  
-  5. To use insecure HTTP mode (not recommended):
-     env-sync serve -d                # Start HTTP server
-     env-sync --insecure-http         # Sync via HTTP
-
-Files:
-  ~/.secrets.env           # Main secrets file
-  ~/.config/env-sync/      # Configuration directory
-  ~/.config/env-sync/backups/  # Backup files
-
-Environment Variables:
-  ENV_SYNC_QUIET=true      # Suppress output
-  ENV_SYNC_PORT=5739       # Server port
-  ENV_SYNC_STRICT_SSH=true # Require known_hosts entries for SSH
+  env-sync                              # Sync (uses mode-appropriate transport)
+  env-sync mode set secure-peer --yes   # Switch to secure-peer mode
+  env-sync peer invite                  # Create peer enrollment invite
+  env-sync serve -d                     # Start server as daemon
+  env-sync status                       # Show status
 
 `)
 }
@@ -1586,6 +1540,395 @@ func runKeyRemove(args []string, revoke bool) int {
 		return 0
 	}
 	logging.Log("SUCCESS", "Removed public key for "+hostname)
+	return 0
+}
+
+func runMode(args []string) int {
+	if len(args) == 0 {
+		fmt.Println("Usage: env-sync mode <get|set>")
+		return 0
+	}
+
+	switch args[0] {
+	case "get":
+		currentMode := modeutil.GetMode()
+		fmt.Printf("Current mode: %s\n", currentMode)
+		fmt.Printf("  %s\n", modeutil.ModeDescription(currentMode))
+		return 0
+
+	case "set":
+		if len(args) < 2 {
+			fmt.Println("Usage: env-sync mode set <mode> [--yes] [--prune-old-material]")
+			fmt.Println("")
+			fmt.Println("Available modes:")
+			for _, m := range config.ValidSyncModes() {
+				fmt.Printf("  %-25s %s\n", m, modeutil.ModeDescription(m))
+			}
+			return 0
+		}
+		newMode := config.SyncMode(args[1])
+		yes := false
+		prune := false
+		for _, arg := range args[2:] {
+			switch arg {
+			case "--yes", "-y":
+				yes = true
+			case "--prune-old-material":
+				prune = true
+			}
+		}
+		if err := modeutil.SetMode(newMode, yes, prune); err != nil {
+			logging.Log("ERROR", err.Error())
+			return 1
+		}
+
+		// Mode-specific initialization
+		if newMode == config.ModeSecurePeer {
+			hostname := secrets.GetHostname()
+			if _, err := identity.EnsureIdentity(hostname); err != nil {
+				logging.Log("ERROR", "Failed to generate TLS identity: "+err.Error())
+				return 1
+			}
+			logging.Log("INFO", "TLS transport identity ready")
+
+			if _, err := os.Stat(config.AgeKeyFile()); err != nil {
+				_ = keys.GenerateKey()
+				logging.Log("INFO", "Generated AGE encryption key")
+			}
+		}
+		return 0
+
+	default:
+		logging.Log("ERROR", "Unknown subcommand: "+args[0])
+		fmt.Println("Usage: env-sync mode <get|set>")
+		return 1
+	}
+}
+
+func runPeer(args []string) int {
+	// Verify we're in secure-peer mode
+	currentMode := modeutil.GetMode()
+	if currentMode != config.ModeSecurePeer {
+		logging.Log("ERROR", "Peer commands require secure-peer mode")
+		logging.Log("INFO", "Switch with: env-sync mode set secure-peer --yes")
+		return 1
+	}
+
+	if len(args) == 0 {
+		showPeerHelp()
+		return 0
+	}
+
+	switch args[0] {
+	case "invite":
+		return runPeerInvite(args[1:])
+	case "request":
+		return runPeerRequest(args[1:])
+	case "approve":
+		return runPeerApprove(args[1:])
+	case "revoke":
+		return runPeerRevoke(args[1:])
+	case "list", "ls":
+		return runPeerList(args[1:])
+	case "trust":
+		if len(args) > 1 && args[1] == "show" {
+			return runPeerTrustShow()
+		}
+		fmt.Println("Usage: env-sync peer trust show")
+		return 0
+	case "help", "--help", "-h":
+		showPeerHelp()
+		return 0
+	default:
+		logging.Log("ERROR", "Unknown subcommand: "+args[0])
+		showPeerHelp()
+		return 1
+	}
+}
+
+func showPeerHelp() {
+	fmt.Print(`env-sync peer - Manage peers (secure-peer mode)
+
+Usage: env-sync peer <subcommand> [options]
+
+Subcommands:
+  invite [options]            Create enrollment invite token
+    --expiry <duration>       Token expiry (default: 24h)
+
+  request <host> <token>      Request access using an invite token
+
+  approve <peer-id>           Approve a pending peer
+
+  revoke <peer-id>            Revoke a peer's access
+
+  list [options]              List known peers
+    --pending                 Show only pending peers
+
+  trust show                  Show trust information (fingerprints, certs)
+
+Examples:
+  env-sync peer invite                      # Create invite (24h expiry)
+  env-sync peer invite --expiry 1h          # Create 1-hour invite
+  env-sync peer request beelink.local abc   # Request access with token
+  env-sync peer approve beelink             # Approve pending peer
+  env-sync peer list                        # List all peers
+`)
+}
+
+func runPeerInvite(args []string) int {
+	expiry := 24 * time.Hour
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--expiry":
+			if i+1 < len(args) {
+				d, err := time.ParseDuration(args[i+1])
+				if err != nil {
+					logging.Log("ERROR", "Invalid duration: "+args[i+1])
+					return 1
+				}
+				expiry = d
+				i++
+			}
+		}
+	}
+
+	id, err := identity.LoadIdentity()
+	if err != nil {
+		logging.Log("ERROR", "No transport identity found. Run 'env-sync mode set secure-peer --yes' first.")
+		return 1
+	}
+
+	hostname := secrets.GetHostname()
+	fingerprint := identity.Fingerprint(id.Certificate)
+
+	invite, err := peer.CreateInvite(hostname, fingerprint, expiry)
+	if err != nil {
+		logging.Log("ERROR", "Failed to create invite: "+err.Error())
+		return 1
+	}
+
+	fmt.Println("╔═══════════════════════════════════════════════════╗")
+	fmt.Println("║           Peer Enrollment Invite Token           ║")
+	fmt.Println("╚═══════════════════════════════════════════════════╝")
+	fmt.Println("")
+	fmt.Println("Token:       " + invite.Token)
+	fmt.Println("Created by:  " + hostname)
+	fmt.Println("Fingerprint: " + fingerprint)
+	fmt.Println("Expires:     " + invite.ExpiresAt)
+	fmt.Println("")
+	fmt.Println("On the new peer, run:")
+	fmt.Printf("  env-sync peer request %s %s\n", hostname, invite.Token)
+	return 0
+}
+
+func runPeerRequest(args []string) int {
+	if len(args) < 2 {
+		fmt.Println("Usage: env-sync peer request <host> <invite-token>")
+		return 1
+	}
+
+	host := args[0]
+	token := args[1]
+
+	hostname := secrets.GetHostname()
+	id, err := identity.EnsureIdentity(hostname)
+	if err != nil {
+		logging.Log("ERROR", "Failed to ensure transport identity: "+err.Error())
+		return 1
+	}
+
+	if _, errStat := os.Stat(config.AgeKeyFile()); errStat != nil {
+		_ = keys.GenerateKey()
+	}
+	agePubkey := keys.GetLocalPubkey()
+
+	fingerprint := identity.Fingerprint(id.Certificate)
+
+	logging.Log("INFO", "Sending access request to "+host+"...")
+
+	err = mtlstransport.RequestAccess(host, token, hostname, hostname, fingerprint, agePubkey, id.CertPEM)
+	if err != nil {
+		logging.Log("ERROR", "Access request failed: "+err.Error())
+		logging.Log("INFO", "Ensure the peer server is running: env-sync serve -d")
+		return 1
+	}
+
+	logging.Log("SUCCESS", "Access request sent to "+host)
+	logging.Log("INFO", "Wait for the peer owner to run: env-sync peer approve "+hostname)
+	return 0
+}
+
+func runPeerApprove(args []string) int {
+	if len(args) < 1 {
+		fmt.Println("Usage: env-sync peer approve <peer-id>")
+
+		// Show pending peers
+		reg, err := peer.LoadRegistry()
+		if err == nil {
+			pending := reg.ListPendingPeers()
+			if len(pending) > 0 {
+				fmt.Println("\nPending peers:")
+				for _, p := range pending {
+					fmt.Printf("  %s (%s)\n", p.ID, p.Hostname)
+				}
+			}
+		}
+		return 1
+	}
+
+	peerID := args[0]
+
+	reg, err := peer.LoadRegistry()
+	if err != nil {
+		logging.Log("ERROR", "Failed to load peer registry: "+err.Error())
+		return 1
+	}
+
+	if err := reg.ApprovePeer(peerID); err != nil {
+		logging.Log("ERROR", err.Error())
+		return 1
+	}
+
+	if err := peer.SaveRegistry(reg); err != nil {
+		logging.Log("ERROR", "Failed to save registry: "+err.Error())
+		return 1
+	}
+
+	// Re-encrypt secrets to include new peer
+	syncer.ReencryptLocal()
+	logging.Log("INFO", "Secrets re-encrypted with new recipient")
+	return 0
+}
+
+func runPeerRevoke(args []string) int {
+	if len(args) < 1 {
+		fmt.Println("Usage: env-sync peer revoke <peer-id>")
+		return 1
+	}
+
+	peerID := args[0]
+
+	reg, err := peer.LoadRegistry()
+	if err != nil {
+		logging.Log("ERROR", "Failed to load peer registry: "+err.Error())
+		return 1
+	}
+
+	if err := reg.RevokePeer(peerID); err != nil {
+		logging.Log("ERROR", err.Error())
+		return 1
+	}
+
+	if err := peer.SaveRegistry(reg); err != nil {
+		logging.Log("ERROR", "Failed to save registry: "+err.Error())
+		return 1
+	}
+
+	syncer.ReencryptLocal()
+	logging.Log("SUCCESS", "Peer revoked and secrets re-encrypted")
+	return 0
+}
+
+func runPeerList(args []string) int {
+	pendingOnly := false
+	for _, arg := range args {
+		if arg == "--pending" {
+			pendingOnly = true
+		}
+	}
+
+	reg, err := peer.LoadRegistry()
+	if err != nil {
+		logging.Log("ERROR", "Failed to load peer registry: "+err.Error())
+		return 1
+	}
+
+	if len(reg.Peers) == 0 {
+		fmt.Println("No peers registered.")
+		fmt.Println("Create an invite with: env-sync peer invite")
+		return 0
+	}
+
+	if pendingOnly {
+		pending := reg.ListPendingPeers()
+		if len(pending) == 0 {
+			fmt.Println("No pending peers.")
+			return 0
+		}
+		fmt.Println("Pending Peers:")
+		for _, p := range pending {
+			fmt.Printf("  ⏳ %s (%s) — added %s\n", p.ID, p.Hostname, p.AddedAt)
+		}
+		return 0
+	}
+
+	fmt.Println("═══ Peer Registry ═══")
+	fmt.Println("")
+	for _, p := range reg.Peers {
+		icon := "⏳"
+		switch p.State {
+		case peer.StateApproved:
+			icon = "✓"
+		case peer.StateRevoked:
+			icon = "✗"
+		}
+		fmt.Printf("  %s %s (%s)\n", icon, p.ID, p.Hostname)
+		fmt.Printf("    State: %s\n", p.State)
+		if p.TransportFingerprint != "" {
+			fmt.Printf("    TLS:   %s\n", truncate(p.TransportFingerprint, 20)+"...")
+		}
+		if p.AGEPubkey != "" {
+			fmt.Printf("    AGE:   %s\n", truncate(p.AGEPubkey, 20)+"...")
+		}
+		fmt.Println("")
+	}
+	return 0
+}
+
+func runPeerTrustShow() int {
+	fmt.Println("═══ Trust Information ═══")
+	fmt.Println("")
+
+	// Local identity
+	if identity.IdentityExists() {
+		id, err := identity.LoadIdentity()
+		if err == nil {
+			fmt.Println("Local Transport Identity:")
+			fmt.Printf("  Hostname:    %s\n", id.Certificate.Subject.CommonName)
+			fmt.Printf("  Fingerprint: %s\n", identity.Fingerprint(id.Certificate))
+			fmt.Printf("  Valid Until: %s\n", id.Certificate.NotAfter.Format(time.RFC3339))
+			fmt.Println("")
+		}
+	} else {
+		fmt.Println("Local Transport Identity: (not generated)")
+		fmt.Println("")
+	}
+
+	// AGE key
+	agePubkey := keys.GetLocalPubkey()
+	if agePubkey != "" {
+		fmt.Println("Local AGE Public Key:")
+		fmt.Printf("  %s\n", agePubkey)
+		fmt.Println("")
+	}
+
+	// Trusted certs
+	fmt.Println("Trusted Peers:")
+	reg, err := peer.LoadRegistry()
+	if err == nil {
+		approved := reg.ListApprovedPeers()
+		if len(approved) == 0 {
+			fmt.Println("  (none)")
+		}
+		for _, p := range approved {
+			fmt.Printf("  ✓ %s (%s)\n", p.ID, p.Hostname)
+			if p.TransportFingerprint != "" {
+				fmt.Printf("    Fingerprint: %s\n", p.TransportFingerprint)
+			}
+		}
+	}
+
 	return 0
 }
 

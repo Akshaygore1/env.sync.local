@@ -1,6 +1,7 @@
 package syncer
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -12,11 +13,15 @@ import (
 	"envsync/internal/backup"
 	"envsync/internal/config"
 	"envsync/internal/discovery"
+	"envsync/internal/identity"
 	"envsync/internal/keys"
 	"envsync/internal/logging"
 	"envsync/internal/metadata"
+	"envsync/internal/mode"
+	"envsync/internal/peer"
 	"envsync/internal/secrets"
 	httptransport "envsync/internal/transport/http"
+	mtlstransport "envsync/internal/transport/mtls"
 	sshtransport "envsync/internal/transport/ssh"
 )
 
@@ -41,8 +46,20 @@ func Run(opts Options) error {
 		_ = os.Setenv("ENV_SYNC_QUIET", "true")
 	}
 
-	if opts.InsecureHTTP {
+	currentMode := mode.GetMode()
+
+	// Mode overrides InsecureHTTP flag
+	switch currentMode {
+	case config.ModeDevPlaintextHTTP:
+		opts.InsecureHTTP = true
 		printHTTPWarning()
+	case config.ModeSecurePeer:
+		opts.InsecureHTTP = false
+		return runSecurePeerSync(opts)
+	default: // trusted-owner-ssh
+		if opts.InsecureHTTP {
+			printHTTPWarning()
+		}
 	}
 
 	maybeReencryptLocal()
@@ -51,7 +68,7 @@ func Run(opts Options) error {
 		if !opts.InsecureHTTP {
 			if err := testSSHFunc(opts.TargetHost); err != nil {
 				logging.Log("ERROR", "Cannot SSH to "+opts.TargetHost)
-				logging.Log("INFO", "Ensure SSH keys are set up, or use --insecure-http flag")
+				logging.Log("INFO", "Ensure SSH keys are set up, or switch mode: env-sync mode set dev-plaintext-http")
 				return err
 			}
 			cachePeerPubkey(opts.TargetHost)
@@ -67,16 +84,16 @@ func Run(opts Options) error {
 			return errors.New("no peers")
 		}
 		success := 0
-		for _, peer := range peers {
-			if peer == secrets.GetHostname() {
+		for _, p := range peers {
+			if p == secrets.GetHostname() {
 				continue
 			}
 			if !opts.InsecureHTTP {
-				if err := testSSHFunc(peer); err != nil {
+				if err := testSSHFunc(p); err != nil {
 					continue
 				}
 			}
-			if err := syncFromHost(peer, opts.InsecureHTTP, opts.ForcePull); err == nil {
+			if err := syncFromHost(p, opts.InsecureHTTP, opts.ForcePull); err == nil {
 				success++
 			}
 		}
@@ -96,12 +113,162 @@ func Run(opts Options) error {
 	if err != nil || newestHost == "" {
 		logging.Log("INFO", "No newer secrets found on network")
 		if !opts.InsecureHTTP {
-			logging.Log("INFO", "To sync without SSH keys, use: env-sync --insecure-http")
+			logging.Log("INFO", "To sync without SSH: env-sync mode set dev-plaintext-http --yes")
 		}
 		return nil
 	}
 	logging.Log("INFO", "Newest secrets found on: "+newestHost)
 	return syncFromHost(newestHost, opts.InsecureHTTP, false)
+}
+
+// runSecurePeerSync handles Mode C (secure-peer) synchronization via mTLS.
+func runSecurePeerSync(opts Options) error {
+	logging.Log("INFO", "Syncing in secure-peer mode (mTLS)...")
+
+	// Ensure local identity exists
+	hostname := secrets.GetHostname()
+	if _, err := identity.EnsureIdentity(hostname); err != nil {
+		return fmt.Errorf("failed to ensure transport identity: %w", err)
+	}
+
+	maybeReencryptLocal()
+
+	// Discover peers
+	peers, err := discoverPeersFunc(false)
+	if err != nil || len(peers) == 0 {
+		logging.Log("INFO", "No peers discovered")
+		return nil
+	}
+
+	// Load peer registry
+	reg, err := peer.LoadRegistry()
+	if err != nil {
+		return fmt.Errorf("failed to load peer registry: %w", err)
+	}
+
+	// Sync membership events from approved peers
+	for _, p := range peers {
+		if p == hostname {
+			continue
+		}
+		registered, _ := reg.GetPeerByHostname(p)
+		if registered == nil || registered.State != peer.StateApproved {
+			continue
+		}
+		if err := syncMembershipEvents(p, registered.ID); err != nil {
+			logging.Log("WARN", fmt.Sprintf("Failed to sync membership events from %s: %v", p, err))
+		}
+	}
+
+	// Fetch secrets from approved peers
+	for _, p := range peers {
+		if p == hostname {
+			continue
+		}
+		registered, _ := reg.GetPeerByHostname(p)
+		if registered == nil || registered.State != peer.StateApproved {
+			continue
+		}
+
+		data, err := mtlstransport.FetchSecrets(p, registered.ID)
+		if err != nil {
+			logging.Log("WARN", fmt.Sprintf("Failed to fetch secrets from %s: %v", p, err))
+			continue
+		}
+
+		// Write to temp file and sync
+		tmpFile, err := os.CreateTemp("", "env-sync-secure-")
+		if err != nil {
+			continue
+		}
+		tmpPath := tmpFile.Name()
+		_ = tmpFile.Close()
+		if err := os.WriteFile(tmpPath, data, 0o600); err != nil {
+			_ = os.Remove(tmpPath)
+			continue
+		}
+
+		if err := secrets.ValidateSecretsFile(tmpPath); err != nil {
+			logging.Log("WARN", "Invalid secrets from "+p)
+			_ = os.Remove(tmpPath)
+			continue
+		}
+
+		// Check if decryptable, request re-encryption if not
+		if keys.IsFileEncrypted(tmpPath) && !keys.CanDecryptFile(tmpPath) {
+			logging.Log("INFO", "Cannot decrypt secrets from "+p+", requesting re-encryption...")
+			agePubkey := keys.GetLocalPubkey()
+			if agePubkey != "" {
+				if err := mtlstransport.RequestReencrypt(p, registered.ID, agePubkey); err != nil {
+					logging.Log("WARN", "Re-encryption request failed: "+err.Error())
+				}
+			}
+			_ = os.Remove(tmpPath)
+			continue
+		}
+
+		// Merge secrets
+		if _, err := os.Stat(config.SecretsFile()); err != nil {
+			if err := copyFile(tmpPath, config.SecretsFile()); err != nil {
+				_ = os.Remove(tmpPath)
+				continue
+			}
+			logging.Log("SUCCESS", "Synced secrets from "+p+" (mTLS)")
+		} else {
+			_ = backup.CreateBackup(config.SecretsFile())
+			localContent, _ := secrets.GetSecretsContent(config.SecretsFile())
+			remoteContent, _ := secrets.GetSecretsContent(tmpPath)
+			merged := secrets.MergeSecretsContent(localContent, remoteContent)
+			if err := secrets.SetSecretsContent(config.SecretsFile(), merged); err != nil {
+				_ = os.Remove(tmpPath)
+				continue
+			}
+			logging.Log("SUCCESS", "Merged secrets from "+p+" (mTLS)")
+		}
+		_ = os.Remove(tmpPath)
+	}
+
+	return nil
+}
+
+func syncMembershipEvents(host string, peerID string) error {
+	log, err := peer.LoadMembershipLog()
+	if err != nil {
+		return err
+	}
+
+	eventsData, err := mtlstransport.FetchMembershipEvents(host, peerID, log.LastEvent)
+	if err != nil {
+		return err
+	}
+
+	var events []peer.MembershipEvent
+	if err := json.Unmarshal(eventsData, &events); err != nil {
+		return fmt.Errorf("failed to parse membership events: %w", err)
+	}
+
+	for _, event := range events {
+		if err := peer.AppendEvent(log, &event); err != nil {
+			logging.Log("WARN", fmt.Sprintf("Skipping event %d: %v", event.EventID, err))
+			continue
+		}
+	}
+
+	if len(events) > 0 {
+		if err := peer.SaveMembershipLog(log); err != nil {
+			return err
+		}
+		// Apply to registry
+		reg, err := peer.LoadRegistry()
+		if err != nil {
+			return err
+		}
+		_, _ = peer.ApplyEvents(reg, log, 0)
+		_ = peer.SaveRegistry(reg)
+		logging.Log("INFO", fmt.Sprintf("Applied %d membership events from %s", len(events), host))
+	}
+
+	return nil
 }
 
 // ReencryptLocal updates local secrets encryption when new recipients are added.

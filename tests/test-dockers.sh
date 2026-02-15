@@ -10,6 +10,7 @@
 #   --setup-only    Only setup the test environment, don't run tests
 #   --debug         Enable debug mode (print outputs of failures)
 #   --filter PATTERN Run only tests matching the pattern
+#   --mode MODE     Run only tests for a specific mode (A, B, C, or all) [default: all]
 #   --formatter FMT  Output format (pretty, tap, junit, etc.) [default: pretty]
 #   --help          Show this help message
 #
@@ -35,6 +36,8 @@ FILTER=""
 FORMATTER="pretty"
 DEBUG_MODE=0
 SHOW_HELP=0
+TEST_MODE="all"
+
 # Default to tap in any CI environment
 if [ "${CI:-}" = "true" ]; then
     FORMATTER="tap"
@@ -58,6 +61,10 @@ while [[ $# -gt 0 ]]; do
             FILTER="$2"
             shift 2
             ;;
+        --mode)
+            TEST_MODE="$2"
+            shift 2
+            ;;
         --formatter)
             FORMATTER="$2"
             shift 2
@@ -76,7 +83,7 @@ done
 
 # Show help
 if [ $SHOW_HELP -eq 1 ]; then
-    echo "env-sync Docker Integration Tests"
+    echo "env-sync Docker Integration Tests (v3.0 — 3-mode support)"
     echo ""
     echo "Usage: ./tests/test-dockers.sh [options]"
     echo ""
@@ -84,15 +91,24 @@ if [ $SHOW_HELP -eq 1 ]; then
     echo "  --no-cleanup      Keep containers running after tests (for debugging)"
     echo "  --setup-only      Only setup the test environment, don't run tests"
     echo "  --filter PATTERN  Run only tests matching the pattern"
+    echo "  --mode MODE       Run tests for a specific mode:"
+    echo "                      A    dev-plaintext-http tests (10-12)"
+    echo "                      B    trusted-owner-ssh tests (20-25)"
+    echo "                      C    secure-peer tests (30-33)"
+    echo "                      all  All tests (default)"
     echo "  --formatter FMT   Output format (pretty, tap, junit, etc.) [default: $FORMATTER]"
+    echo "  --debug           Print output on test failures"
     echo "  --help, -h        Show this help message"
     echo ""
     echo "Examples:"
-    echo "  ./tests/test-dockers.sh                              # Run all tests"
-    echo "  ./tests/test-dockers.sh --no-cleanup                 # Run tests, keep containers"
-    echo "  ./tests/test-dockers.sh --filter basic               # Run only basic sync tests"
-    echo "  ./tests/test-dockers.sh --formatter tap              # Run tests with TAP output"
-    echo "  ./tests/test-dockers.sh --setup-only                 # Just setup, then exit"
+    echo "  ./tests/test-dockers.sh                       # Run all tests"
+    echo "  ./tests/test-dockers.sh --mode A              # Run only Mode A (HTTP) tests"
+    echo "  ./tests/test-dockers.sh --mode B              # Run only Mode B (SSH) tests"
+    echo "  ./tests/test-dockers.sh --mode C              # Run only Mode C (mTLS) tests"
+    echo "  ./tests/test-dockers.sh --no-cleanup          # Run tests, keep containers"
+    echo "  ./tests/test-dockers.sh --filter modeA        # Run only modeA tests"
+    echo "  ./tests/test-dockers.sh --formatter tap       # Run tests with TAP output"
+    echo "  ./tests/test-dockers.sh --setup-only          # Just setup, then exit"
     echo ""
     exit 0
 fi
@@ -200,6 +216,55 @@ setup_environment() {
     print_success "Test environment is ready"
 }
 
+# Function to select test files based on mode
+select_test_files() {
+    local mode="$1"
+    local test_files=""
+
+    # Always include setup
+    test_files="$BATS_TEST_DIR/01_setup.bats"
+
+    case "$mode" in
+        A|a|modeA)
+            print_info "Running Mode A (dev-plaintext-http) tests" >&2
+            test_files="$test_files $BATS_TEST_DIR/10_modeA_setup.bats"
+            test_files="$test_files $BATS_TEST_DIR/11_modeA_basic_sync.bats"
+            test_files="$test_files $BATS_TEST_DIR/12_modeA_force_pull.bats"
+            ;;
+        B|b|modeB)
+            print_info "Running Mode B (trusted-owner-ssh) tests" >&2
+            test_files="$test_files $BATS_TEST_DIR/20_modeB_setup.bats"
+            test_files="$test_files $BATS_TEST_DIR/21_modeB_basic_sync.bats"
+            test_files="$test_files $BATS_TEST_DIR/22_modeB_encrypted_sync.bats"
+            test_files="$test_files $BATS_TEST_DIR/23_modeB_propagation.bats"
+            test_files="$test_files $BATS_TEST_DIR/24_modeB_add_machine.bats"
+            test_files="$test_files $BATS_TEST_DIR/25_modeB_force_pull.bats"
+            ;;
+        C|c|modeC)
+            print_info "Running Mode C (secure-peer) tests" >&2
+            test_files="$test_files $BATS_TEST_DIR/30_modeC_setup.bats"
+            test_files="$test_files $BATS_TEST_DIR/31_modeC_peer_enrollment.bats"
+            test_files="$test_files $BATS_TEST_DIR/32_modeC_sync.bats"
+            test_files="$test_files $BATS_TEST_DIR/33_modeC_revocation.bats"
+            ;;
+        all)
+            print_info "Running all mode tests (A, B, C)" >&2
+            test_files="$BATS_TEST_DIR"
+            ;;
+        *)
+            print_error "Unknown mode: $mode. Use A, B, C, or all."
+            exit 1
+            ;;
+    esac
+
+    # Append teardown unless running all (bats handles sorting)
+    if [ "$mode" != "all" ]; then
+        test_files="$test_files $BATS_TEST_DIR/99_teardown.bats"
+    fi
+
+    echo "$test_files"
+}
+
 # Function to cleanup
 cleanup() {
     if [ $NO_CLEANUP -eq 1 ]; then
@@ -220,7 +285,7 @@ cleanup() {
 # Main execution
 echo ""
 echo "=============================================="
-echo "env-sync Docker Integration Tests"
+echo "env-sync Docker Integration Tests (v3.0)"
 echo "=============================================="
 echo ""
 
@@ -244,9 +309,12 @@ fi
 # Set trap for cleanup on exit
 trap cleanup EXIT
 
+# Select test files based on mode
+BATS_TEST_PATTERN=$(select_test_files "$TEST_MODE")
+
 # Run tests
 echo ""
-print_info "Running tests..."
+print_info "Running tests (mode: $TEST_MODE)..."
 echo ""
 
 BATS_ARGS="--timing --formatter $FORMATTER"
@@ -259,13 +327,6 @@ if [ $DEBUG_MODE -eq 1 ]; then
     BATS_ARGS="$BATS_ARGS --print-output-on-failure"
 fi
 
-if [ $NO_CLEANUP -eq 1 ]; then
-    # Skip teardown if --no-cleanup is set
-    BATS_TEST_PATTERN="01_setup.bats 10_basic_sync.bats 20_encrypted_sync.bats 30_propagation.bats 40_add_machine.bats"
-else
-    BATS_TEST_PATTERN="$BATS_TEST_DIR"
-fi
-
 cd "$SCRIPT_DIR"
 
 # Run bats tests
@@ -276,9 +337,9 @@ TEST_EXIT_CODE=$?
 echo ""
 echo "=============================================="
 if [ $TEST_EXIT_CODE -eq 0 ]; then
-    print_success "All tests passed!"
+    print_success "All tests passed! (mode: $TEST_MODE)"
 else
-    print_error "Some tests failed!"
+    print_error "Some tests failed! (mode: $TEST_MODE)"
 fi
 echo "=============================================="
 echo ""

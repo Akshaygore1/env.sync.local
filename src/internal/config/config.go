@@ -6,11 +6,21 @@ import (
 	"strings"
 )
 
+// SyncMode represents the operation mode for env-sync.
+type SyncMode string
+
 const (
-	Version              = "2.1.0"
+	Version              = "3.0.0"
 	DefaultPort          = "5739"
 	Service              = "_envsync._tcp"
 	DefaultInitTimestamp = "1970-01-01T00:00:00Z"
+
+	// Operation modes
+	ModeDevPlaintextHTTP SyncMode = "dev-plaintext-http"
+	ModeTrustedOwnerSSH  SyncMode = "trusted-owner-ssh"
+	ModeSecurePeer       SyncMode = "secure-peer"
+
+	DefaultMode = ModeTrustedOwnerSSH
 )
 
 var (
@@ -99,4 +109,55 @@ func RequestsDir() string {
 
 func ServerPidFile() string {
 	return filepath.Join(ConfigDir(), "server.pid")
+}
+
+func ModeConfigFile() string {
+	return filepath.Join(ConfigDir(), "mode.conf")
+}
+
+func TLSDir() string {
+	return filepath.Join(ConfigDir(), "tls")
+}
+
+func TLSKeyFile() string {
+	return filepath.Join(TLSDir(), "transport.key")
+}
+
+func TLSCertFile() string {
+	return filepath.Join(TLSDir(), "transport.crt")
+}
+
+func PeerRegistryDir() string {
+	return filepath.Join(ConfigDir(), "peers")
+}
+
+func PeerRegistryFile() string {
+	return filepath.Join(PeerRegistryDir(), "registry.json")
+}
+
+func InviteDir() string {
+	return filepath.Join(PeerRegistryDir(), "invites")
+}
+
+func MembershipEventsFile() string {
+	return filepath.Join(PeerRegistryDir(), "membership_events.json")
+}
+
+func TrustedCertsDir() string {
+	return filepath.Join(TLSDir(), "trusted")
+}
+
+// ValidSyncModes returns all valid sync modes.
+func ValidSyncModes() []SyncMode {
+	return []SyncMode{ModeDevPlaintextHTTP, ModeTrustedOwnerSSH, ModeSecurePeer}
+}
+
+// IsValidSyncMode checks if a mode string is valid.
+func IsValidSyncMode(mode string) bool {
+	for _, m := range ValidSyncModes() {
+		if string(m) == mode {
+			return true
+		}
+	}
+	return false
 }
