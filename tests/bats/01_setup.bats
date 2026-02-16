@@ -1,5 +1,8 @@
 #!/usr/bin/env bats
 
+# 01_setup.bats — Shared environment setup for all test modes
+# Starts Docker containers and verifies basic connectivity
+
 load 'test_helper'
 
 @test "Docker is installed and running" {
@@ -22,14 +25,14 @@ load 'test_helper'
 
 @test "Docker image builds successfully" {
     cd "$DOCKER_DIR/.."
-    run $DOCKER_COMPOSE -f "$DOCKER_DIR/docker-compose.yml" build --no-cache
+    run $DOCKER_COMPOSE -f "$DOCKER_DIR/docker-compose.yml" build
     [ "$status" -eq 0 ]
 }
 
 @test "Containers start successfully" {
     cd "$DOCKER_DIR/.."
     $DOCKER_COMPOSE -f "$DOCKER_DIR/docker-compose.yml" up -d
-    
+
     run wait_for_containers 90
     [ "$status" -eq 0 ]
 }
@@ -47,9 +50,7 @@ load 'test_helper'
     [ "$status" -eq 0 ]
 }
 
-@test "SSH connectivity between containers works" {
-    run parallel_run \
-        "container_exec \"$CONTAINER_ALPHA\" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no beta.local echo \"OK\" 2>/dev/null | grep -qx \"OK\"" \
-        "container_exec \"$CONTAINER_ALPHA\" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no gamma.local echo \"OK\" 2>/dev/null | grep -qx \"OK\""
+@test "env-sync binary is available" {
+    run container_exec "$CONTAINER_ALPHA" env-sync --version
     [ "$status" -eq 0 ]
 }

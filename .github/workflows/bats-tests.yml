@@ -14,7 +14,21 @@ permissions:
 jobs:
   go-tests:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Go Unit Tests
+        run: make test
+
+  docker-tests-modeA:
+    runs-on: ubuntu-latest
+    needs: go-tests
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,18 +49,82 @@ jobs:
       - name: Verify BATS installation
         run: bats --version
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.24"
+      - name: Run Mode A Tests (dev-plaintext-http)
+        run: ./tests/test-dockers.sh --mode A --debug
 
-      - name: Go Tests
-        run: make test
+  docker-tests-modeB:
+    runs-on: ubuntu-latest
+    needs: go-tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Run Docker Tests (Go)
-        run: ./tests/test-dockers.sh --debug
+      - name: Install GNU parallel
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y parallel
 
-      - name: Verify Version (Go)
+      - name: Install BATS
+        run: |
+          git clone https://github.com/bats-core/bats-core.git
+          cd bats-core
+          sudo ./install.sh /usr/local
+          cd ..
+          rm -rf bats-core
+
+      - name: Verify BATS installation
+        run: bats --version
+
+      - name: Run Mode B Tests (trusted-owner-ssh)
+        run: ./tests/test-dockers.sh --mode B --debug
+
+  docker-tests-modeC:
+    runs-on: ubuntu-latest
+    needs: go-tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install GNU parallel
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y parallel
+
+      - name: Install BATS
+        run: |
+          git clone https://github.com/bats-core/bats-core.git
+          cd bats-core
+          sudo ./install.sh /usr/local
+          cd ..
+          rm -rf bats-core
+
+      - name: Verify BATS installation
+        run: bats --version
+
+      - name: Run Mode C Tests (secure-peer)
+        run: ./tests/test-dockers.sh --mode C --debug
+
+  verify-version:
+    runs-on: ubuntu-latest
+    needs: go-tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install GNU parallel
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y parallel
+
+      - name: Install BATS
+        run: |
+          git clone https://github.com/bats-core/bats-core.git
+          cd bats-core
+          sudo ./install.sh /usr/local
+          cd ..
+          rm -rf bats-core
+
+      - name: Verify Version
         run: |
           ./tests/start-test-env.sh
           docker exec env-sync-alpha env-sync --version
