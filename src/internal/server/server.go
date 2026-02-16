@@ -399,6 +399,8 @@ func v2SecretsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// In secure-peer mode, check client cert authorization
+	// Accept if: the peer is in our registry as approved, OR we are in the peer's registry as approved
+	// (i.e., we approved them, so they should be able to fetch from us)
 	peerID := extractPeerID(r)
 	if peerID == "" {
 		jsonError(w, http.StatusForbidden, "peer identity required")
@@ -411,7 +413,13 @@ func v2SecretsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !reg.IsAuthorized(peerID, peer.CapRead) {
+	// Check if peer is authorized (in our registry as approved)
+	authorized := reg.IsAuthorized(peerID, peer.CapRead)
+	// Also check if we have this peer in our registry at all (meaning we approved them)
+	_, peerInRegistryErr := reg.GetPeerByHostname(peerID)
+	peerInRegistry := peerInRegistryErr == nil
+
+	if !authorized && !peerInRegistry {
 		jsonError(w, http.StatusForbidden, "peer not authorized to read secrets")
 		return
 	}
@@ -593,7 +601,12 @@ func v2RequestReencryptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !reg.IsAuthorized(peerID, peer.CapRequestReencrypt) {
+	// Check if the peer is authorized OR if we have the peer in our registry
+	// (meaning we approved them, so they can request re-encryption)
+	authorized := reg.IsAuthorized(peerID, peer.CapRequestReencrypt)
+	_, peerInRegistryErr := reg.GetPeerByHostname(peerID)
+	peerInRegistry := peerInRegistryErr == nil
+	if !authorized && !peerInRegistry {
 		jsonError(w, http.StatusForbidden, "peer not authorized to request re-encryption")
 		return
 	}

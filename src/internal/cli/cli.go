@@ -674,7 +674,12 @@ func runAdd(args []string) int {
 			logging.Log("ERROR", "Cannot modify encrypted file - you don't have access")
 			return 1
 		}
-		recipients := keys.GetRecipientsFromFile(config.SecretsFile())
+		// Use all known recipients (not just those in the file) to ensure
+		// the new secret is encrypted for all peers we know about
+		recipients := keys.GetAllKnownRecipients()
+		if len(recipients) == 0 {
+			recipients = keys.GetRecipientsFromFile(config.SecretsFile())
+		}
 		encrypted, err := keys.EncryptValue(value, recipients)
 		if err != nil {
 			logging.Log("ERROR", "Failed to encrypt value")
@@ -700,6 +705,17 @@ func runAdd(args []string) int {
 	if err := secrets.SetSecretsContent(config.SecretsFile(), strings.Join(lines, "\n")); err != nil {
 		return 1
 	}
+
+	// In secure-peer mode, trigger a sync after adding a secret
+	// This will fetch newer secrets from peers that have approved us
+	if modeutil.GetMode() == config.ModeSecurePeer {
+		logging.Log("INFO", "Running post-add sync...")
+		syncOpts := syncer.Options{AllPeers: true, Force: false, Quiet: true}
+		if err := syncer.Run(syncOpts); err != nil {
+			logging.Log("DEBUG", "Post-add sync failed: "+err.Error())
+		}
+	}
+
 	logging.Log("SUCCESS", "Added/updated key: "+key)
 	return 0
 }
@@ -1785,6 +1801,13 @@ func runPeerApprove(args []string) int {
 		return 1
 	}
 
+	// Get peer info before approving
+	p, err := reg.GetPeer(peerID)
+	if err != nil {
+		logging.Log("ERROR", err.Error())
+		return 1
+	}
+
 	if err := reg.ApprovePeer(peerID); err != nil {
 		logging.Log("ERROR", err.Error())
 		return 1
@@ -1793,6 +1816,32 @@ func runPeerApprove(args []string) int {
 	if err := peer.SaveRegistry(reg); err != nil {
 		logging.Log("ERROR", "Failed to save registry: "+err.Error())
 		return 1
+	}
+
+	// Create membership event for the approval
+	hostname := secrets.GetHostname()
+	id, err := identity.LoadIdentity()
+	if err != nil {
+		logging.Log("WARN", "Could not load identity for membership event: "+err.Error())
+	} else {
+		log, err := peer.LoadMembershipLog()
+		if err != nil {
+			logging.Log("WARN", "Could not load membership log: "+err.Error())
+		} else {
+			eventExpiry := 30 * 24 * time.Hour // 30 days
+			event, err := peer.CreateApproveEvent(log, *p, hostname, id.Key, eventExpiry)
+			if err != nil {
+				logging.Log("WARN", "Could not create membership event: "+err.Error())
+			} else {
+				if err := peer.AppendEvent(log, event); err != nil {
+					logging.Log("WARN", "Could not append membership event: "+err.Error())
+				} else if err := peer.SaveMembershipLog(log); err != nil {
+					logging.Log("WARN", "Could not save membership log: "+err.Error())
+				} else {
+					logging.Log("INFO", "Created membership event for "+p.Hostname)
+				}
+			}
+		}
 	}
 
 	// Re-encrypt secrets to include new peer
@@ -1815,6 +1864,13 @@ func runPeerRevoke(args []string) int {
 		return 1
 	}
 
+	// Get peer info before revoking
+	p, err := reg.GetPeer(peerID)
+	if err != nil {
+		logging.Log("ERROR", err.Error())
+		return 1
+	}
+
 	if err := reg.RevokePeer(peerID); err != nil {
 		logging.Log("ERROR", err.Error())
 		return 1
@@ -1823,6 +1879,32 @@ func runPeerRevoke(args []string) int {
 	if err := peer.SaveRegistry(reg); err != nil {
 		logging.Log("ERROR", "Failed to save registry: "+err.Error())
 		return 1
+	}
+
+	// Create membership event for the revocation
+	hostname := secrets.GetHostname()
+	id, err := identity.LoadIdentity()
+	if err != nil {
+		logging.Log("WARN", "Could not load identity for membership event: "+err.Error())
+	} else {
+		log, err := peer.LoadMembershipLog()
+		if err != nil {
+			logging.Log("WARN", "Could not load membership log: "+err.Error())
+		} else {
+			eventExpiry := 30 * 24 * time.Hour // 30 days
+			event, err := peer.CreateRevokeEvent(log, *p, hostname, id.Key, eventExpiry)
+			if err != nil {
+				logging.Log("WARN", "Could not create membership event: "+err.Error())
+			} else {
+				if err := peer.AppendEvent(log, event); err != nil {
+					logging.Log("WARN", "Could not append membership event: "+err.Error())
+				} else if err := peer.SaveMembershipLog(log); err != nil {
+					logging.Log("WARN", "Could not save membership log: "+err.Error())
+				} else {
+					logging.Log("INFO", "Created revocation event for "+p.Hostname)
+				}
+			}
+		}
 	}
 
 	syncer.ReencryptLocal()

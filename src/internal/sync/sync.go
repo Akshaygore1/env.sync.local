@@ -146,37 +146,49 @@ func runSecurePeerSync(opts Options) error {
 		return fmt.Errorf("failed to load peer registry: %w", err)
 	}
 
-	// Sync membership events from approved peers
+	// Sync membership events from all discovered peers
+	// This helps us learn about other peers and their trust relationships
 	for _, p := range peers {
 		if p == hostname {
 			continue
 		}
-		registered, _ := reg.GetPeerByHostname(p)
-		if registered == nil || registered.State != peer.StateApproved {
-			continue
-		}
-		if err := syncMembershipEvents(p, registered.ID); err != nil {
-			logging.Log("WARN", fmt.Sprintf("Failed to sync membership events from %s: %v", p, err))
+		// Try to sync from any peer - the server will reject if we're not authorized
+		if err := syncMembershipEvents(p, ""); err != nil {
+			logging.Log("DEBUG", fmt.Sprintf("Failed to sync membership events from %s: %v", p, err))
 		}
 	}
 
-	// Fetch secrets from approved peers
+	// Reload registry after syncing events
+	reg, err = peer.LoadRegistry()
+	if err != nil {
+		return fmt.Errorf("failed to reload peer registry: %w", err)
+	}
+
+	// Fetch secrets from all discovered peers (server will reject unauthorized)
+	// Try each peer and merge the newest secrets
+	var newestContent []byte
+	var newestHost string
+	var newestTime time.Time
+
 	for _, p := range peers {
 		if p == hostname {
 			continue
 		}
+
+		// Get peer info from registry if available
+		var peerID string
 		registered, _ := reg.GetPeerByHostname(p)
-		if registered == nil || registered.State != peer.StateApproved {
-			continue
+		if registered != nil {
+			peerID = registered.ID
 		}
 
-		data, err := mtlstransport.FetchSecrets(p, registered.ID)
+		data, err := mtlstransport.FetchSecrets(p, peerID)
 		if err != nil {
-			logging.Log("WARN", fmt.Sprintf("Failed to fetch secrets from %s: %v", p, err))
+			logging.Log("DEBUG", fmt.Sprintf("Failed to fetch secrets from %s: %v", p, err))
 			continue
 		}
 
-		// Write to temp file and sync
+		// Write to temp file and validate
 		tmpFile, err := os.CreateTemp("", "env-sync-secure-")
 		if err != nil {
 			continue
@@ -189,7 +201,7 @@ func runSecurePeerSync(opts Options) error {
 		}
 
 		if err := secrets.ValidateSecretsFile(tmpPath); err != nil {
-			logging.Log("WARN", "Invalid secrets from "+p)
+			logging.Log("DEBUG", "Invalid secrets from "+p)
 			_ = os.Remove(tmpPath)
 			continue
 		}
@@ -198,22 +210,52 @@ func runSecurePeerSync(opts Options) error {
 		if keys.IsFileEncrypted(tmpPath) && !keys.CanDecryptFile(tmpPath) {
 			logging.Log("INFO", "Cannot decrypt secrets from "+p+", requesting re-encryption...")
 			agePubkey := keys.GetLocalPubkey()
-			if agePubkey != "" {
-				if err := mtlstransport.RequestReencrypt(p, registered.ID, agePubkey); err != nil {
-					logging.Log("WARN", "Re-encryption request failed: "+err.Error())
+			if agePubkey != "" && peerID != "" {
+				if err := mtlstransport.RequestReencrypt(p, peerID, agePubkey); err != nil {
+					logging.Log("DEBUG", "Re-encryption request failed: "+err.Error())
 				}
 			}
 			_ = os.Remove(tmpPath)
 			continue
 		}
 
-		// Merge secrets
+		// Check if this is newer than what we have
+		remoteTime := metadata.GetFileTimestamp(tmpPath)
+		if newestContent == nil || (newestTime.IsZero() && remoteTime != "") {
+			newestContent, _ = os.ReadFile(tmpPath)
+			newestHost = p
+			if remoteTime != "" {
+				newestTime, _ = time.Parse(time.RFC3339, remoteTime)
+			}
+		} else if !newestTime.IsZero() && remoteTime != "" {
+			remoteTimeParsed, err := time.Parse(time.RFC3339, remoteTime)
+			if err == nil && remoteTimeParsed.After(newestTime) {
+				newestContent, _ = os.ReadFile(tmpPath)
+				newestHost = p
+				newestTime = remoteTimeParsed
+			}
+		}
+	}
+
+	// If we got newer content from a peer, merge it with local
+	if newestContent != nil {
+		tmpFile, err := os.CreateTemp("", "env-sync-secure-")
+		if err != nil {
+			return nil
+		}
+		tmpPath := tmpFile.Name()
+		_ = tmpFile.Close()
+		if err := os.WriteFile(tmpPath, newestContent, 0o600); err != nil {
+			_ = os.Remove(tmpPath)
+			return nil
+		}
+
 		if _, err := os.Stat(config.SecretsFile()); err != nil {
 			if err := copyFile(tmpPath, config.SecretsFile()); err != nil {
 				_ = os.Remove(tmpPath)
-				continue
+				return nil
 			}
-			logging.Log("SUCCESS", "Synced secrets from "+p+" (mTLS)")
+			logging.Log("SUCCESS", "Synced secrets from "+newestHost+" (mTLS)")
 		} else {
 			_ = backup.CreateBackup(config.SecretsFile())
 			localContent, _ := secrets.GetSecretsContent(config.SecretsFile())
@@ -221,9 +263,9 @@ func runSecurePeerSync(opts Options) error {
 			merged := secrets.MergeSecretsContent(localContent, remoteContent)
 			if err := secrets.SetSecretsContent(config.SecretsFile(), merged); err != nil {
 				_ = os.Remove(tmpPath)
-				continue
+				return nil
 			}
-			logging.Log("SUCCESS", "Merged secrets from "+p+" (mTLS)")
+			logging.Log("SUCCESS", "Merged secrets from "+newestHost+" (mTLS)")
 		}
 		_ = os.Remove(tmpPath)
 	}

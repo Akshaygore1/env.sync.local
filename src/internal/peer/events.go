@@ -14,6 +14,7 @@ import (
 
 	"envsync/internal/config"
 	"envsync/internal/logging"
+	"envsync/internal/secrets"
 )
 
 // MembershipEvent represents a signed event in the append-only membership log.
@@ -150,7 +151,10 @@ func eventDigest(event *MembershipEvent) []byte {
 
 // ApplyEvents reconciles membership events into the peer registry.
 // Events are applied in order: approve adds/updates peers, revoke revokes them.
+// When we receive an approval event for ourselves, we also add the sponsor (approver) to our registry.
 func ApplyEvents(reg *Registry, log *MembershipLog, lastApplied uint64) (uint64, error) {
+	hostname := secrets.GetHostname()
+
 	for _, event := range log.Events {
 		if event.EventID <= lastApplied {
 			continue
@@ -182,6 +186,23 @@ func ApplyEvents(reg *Registry, log *MembershipLog, lastApplied uint64) (uint64,
 				_ = reg.ApprovePeer(event.PeerID)
 			}
 			logging.Log("INFO", fmt.Sprintf("Applied approval event for %s (sponsor: %s)", event.Hostname, event.SponsorID))
+
+			// If this event is for ourselves, also add the sponsor (approver) to our registry
+			if event.PeerID == hostname && event.SponsorID != hostname {
+				// Get sponsor's info from the event - we need to fetch their cert and AGE key
+				// For now, just add them as approved with empty info - they'll update on next sync
+				_, err := reg.GetPeer(event.SponsorID)
+				if err != nil {
+					sponsorPeer := Peer{
+						ID:           event.SponsorID,
+						Hostname:     event.SponsorID,
+						State:        StateApproved,
+						Capabilities: []Capability{CapRead, CapRequestReencrypt},
+					}
+					_ = reg.AddPeer(sponsorPeer)
+					logging.Log("INFO", fmt.Sprintf("Added sponsor %s to registry", event.SponsorID))
+				}
+			}
 
 		case "revoke":
 			if _, err := reg.GetPeer(event.PeerID); err == nil {
