@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>env-sync vs HashiCorp Vault</title><meta name="description" content="Compare env-sync and HashiCorp Vault." />
+<link rel="canonical" href="https://envsync.arnav.tech/comparisons/env-sync-vs-vault.html" /><link rel="stylesheet" href="../styles.css" /></head>
+<body><header><div class="nav"><a class="brand" href="../index.html">env-sync</a></div></header><main>
+<h1>env-sync vs HashiCorp Vault</h1>
+<section class="panel"><p><strong>Vault</strong> is an enterprise secrets platform with secure storage, dynamic secrets, leasing, revocation, encryption APIs, and detailed audit logs. <strong>env-sync</strong> is a lightweight peer sync tool for local-network .env parity.</p></section>
+<section class="panel"><table><thead><tr><th>Dimension</th><th>env-sync</th><th>Vault</th></tr></thead><tbody>
+<tr><td>Architecture</td><td>P2P local mesh</td><td>Centralized service/API platform</td></tr>
+<tr><td>Dynamic secrets</td><td>No</td><td>Yes</td></tr>
+<tr><td>Audit/compliance depth</td><td>Basic logs + peer state</td><td>Detailed audit logging and policy control</td></tr>
+<tr><td>Operational overhead</td><td>Low</td><td>Higher (server operations and policy model)</td></tr>
+</tbody></table></section>
+<section class="panel"><h2>Choose env-sync when</h2><ul><li>You need simple local network sync for developer or edge fleets.</li><li>You prefer no central secrets server in your network.</li></ul><h2>Choose Vault when</h2><ul><li>You need dynamic credentials, strict policy controls, and enterprise audit/compliance workflows.</li></ul></section>
+<section class="panel"><h2>Sources</h2><ul><li><a href="https://github.com/hashicorp/vault">Vault README</a> (secure storage, dynamic secrets, leasing, revocation)</li><li><a href="https://github.com/championswimmer/env.sync.local">env-sync docs</a></li></ul></section>
+</main></body></html>

@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>env-sync vs SOPS</title><meta name="description" content="Compare env-sync and Mozilla SOPS for secrets management." />
+<link rel="canonical" href="https://envsync.arnav.tech/comparisons/env-sync-vs-sops.html" /><link rel="stylesheet" href="../styles.css" /></head>
+<body><header><div class="nav"><a class="brand" href="../index.html">env-sync</a></div></header><main>
+<h1>env-sync vs Mozilla SOPS</h1>
+<section class="panel"><p><strong>SOPS</strong> is an encrypted-file editor for YAML/JSON/ENV/INI/binary with KMS/age/PGP integrations and is commonly used with GitOps. <strong>env-sync</strong> is a sync engine for local peers with merge logic, discovery, and mode-specific transport.</p></section>
+<section class="panel"><table><thead><tr><th>Dimension</th><th>env-sync</th><th>SOPS</th></tr></thead><tbody>
+<tr><td>Primary workflow</td><td>Sync latest secrets between peers</td><td>Encrypt files for safe storage (often in Git)</td></tr>
+<tr><td>Networking</td><td>Built-in mDNS + SSH/mTLS transport</td><td>No built-in peer transport/discovery</td></tr>
+<tr><td>Merge behavior</td><td>Version/timestamp-aware sync merge</td><td>File-level encryption/decryption workflow</td></tr>
+<tr><td>Best fit</td><td>LAN machine fleet secrets alignment</td><td>Git-centered encrypted config lifecycle</td></tr>
+</tbody></table></section>
+<section class="panel"><h2>Sources</h2><ul><li><a href="https://github.com/getsops/sops">SOPS README</a> (formats and key providers)</li><li><a href="https://github.com/championswimmer/env.sync.local">env-sync docs</a></li></ul></section>
+</main></body></html>
