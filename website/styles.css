@@ -114,7 +114,8 @@ nav ul li.dropdown .dropdown-menu li a:hover {
   background: rgba(151, 201, 255, 0.1);
   text-decoration: none;
 }
-nav ul li.dropdown:hover .dropdown-menu {
+nav ul li.dropdown:hover .dropdown-menu,
+nav ul li.dropdown:focus-within .dropdown-menu {
   display: block;
 }
 .nav .github-link {
