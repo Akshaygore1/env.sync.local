@@ -41,10 +41,10 @@ Download and install the latest release directly:
 
 ```bash
 # Install to /usr/local/bin (requires sudo)
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | sudo bash
+curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 
 # Or install to ~/.local/bin (user-only, no sudo)
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | bash -s -- --user
+curl -fsSL https://envsync.arnav.tech/install.sh | bash -s -- --user
 ```
 
 ### What the Installer Does
@@ -118,7 +118,7 @@ sudo apt-get update
 sudo apt-get install -y avahi-daemon avahi-utils
 
 # Install env-sync
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | sudo bash
+curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 ```
 
 #### Fedora/RHEL/CentOS
@@ -128,7 +128,7 @@ curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main
 sudo dnf install -y avahi avahi-tools
 
 # Install env-sync
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | sudo bash
+curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 ```
 
 #### Arch Linux
@@ -138,7 +138,7 @@ curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main
 sudo pacman -S avahi
 
 # Install env-sync
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | sudo bash
+curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 ```
 
 ### macOS
@@ -147,7 +147,7 @@ mDNS (Bonjour) is built-in, no additional dependencies needed.
 
 ```bash
 # Install env-sync
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | sudo bash
+curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 ```
 
 **Note**: On macOS, the service uses `launchd` instead of `systemd`.
@@ -177,7 +177,7 @@ EOF
 sudo service avahi-daemon restart
 
 # Install env-sync
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | sudo bash
+curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 ```
 
 ## Post-Installation
