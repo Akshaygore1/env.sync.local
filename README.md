@@ -19,10 +19,10 @@ Distributed secrets synchronization for local networks. Sync your `.env` files s
 
 ```bash
 # System-wide install
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | sudo bash
+curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 
 # User install (no sudo)
-curl -fsSL https://raw.githubusercontent.com/championswimmer/env.sync.local/main/install.sh | bash -s -- --user
+curl -fsSL https://envsync.arnav.tech/install.sh | bash -s -- --user
 ```
 
 See [INSTALLATION.md](./docs/INSTALLATION.md) for detailed platform-specific instructions.
