@@ -142,11 +142,13 @@ fi
 - **[INSTALLATION.md](./docs/INSTALLATION.md)** - Detailed installation instructions for all platforms
 - **[USAGE.md](./docs/USAGE.md)** - Complete command reference and workflows
 - **[SECURITY-MODES.md](./docs/SECURITY-MODES.md)** - Security model details and threat analysis
+- **[GUI.md](./docs/GUI.md)** - Desktop GUI application guide
 - **[CHANGELOG.md](./CHANGELOG.md)** - Version history and release notes
 
 ## Features
 
 - **Three Operation Modes**: Choose the right security model for your trust scenario
+- **Desktop GUI**: Optional graphical interface with the same capabilities ([docs](./docs/GUI.md))
 - **Distributed**: No master server, all machines are equal
 - **Automatic Discovery**: Uses mDNS/Bonjour to find peers
 - **Easy Expansion**: Add new machines without touching existing ones (trusted-owner mode)
@@ -196,14 +198,22 @@ Machine A                      Machine B
 git clone https://github.com/championswimmer/env.sync.local.git
 cd env.sync.local
 
-# Build
+# Build CLI
 make build
+
+# Build GUI (requires Node.js 18+)
+make build-gui
+
+# Build both
+make build-all
 
 # Test
 make test
 
 # Install
-sudo make install
+sudo make install          # CLI only
+sudo make install-gui      # GUI only
+sudo make install-all      # Both
 ```
 
 See [INSTALLATION.md](./docs/INSTALLATION.md) for more options.
