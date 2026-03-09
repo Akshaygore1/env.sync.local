@@ -8,9 +8,9 @@ dist/
 ~/.config/env-sync/
 
 # Frontend build artifacts
-src/frontend/node_modules/
-src/frontend/dist/
-src/frontend/wailsjs/
+src/gui/frontend/node_modules/
+src/gui/frontend/dist/
+src/gui/frontend/wailsjs/
 
 # IDE
 .vscode/

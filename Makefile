@@ -6,7 +6,7 @@ BIN_GUI := $(TARGET_DIR)/env-sync-gui
 GO ?= go
 PREFIX ?= /usr/local
 
-.PHONY: build build-gui build-all test install install-gui install-all clean dev-gui
+.PHONY: build build-gui build-all test test-gui install install-gui install-all clean dev-gui
 
 build:
 	@mkdir -p $(TARGET_DIR)
@@ -14,16 +14,19 @@ build:
 
 build-gui:
 	@mkdir -p $(TARGET_DIR)
-	cd $(SRC_DIR)/frontend && npm install && npm run build
-	cd $(SRC_DIR) && $(GO) build -tags gui -o $(BIN_GUI) .
+	cd $(SRC_DIR)/gui/frontend && npm install && npm run build
+	cd $(SRC_DIR) && $(GO) build -o $(BIN_GUI) ./gui
 
 build-all: build build-gui
 
 dev-gui:
-	cd $(SRC_DIR) && PATH="$$HOME/go/bin:$$PATH" wails dev -tags gui
+	cd $(SRC_DIR)/gui && PATH="$$HOME/go/bin:$$PATH" wails dev
 
 test:
-	cd $(SRC_DIR) && $(GO) test ./...
+	cd $(SRC_DIR) && $(GO) test ./cmd/... ./internal/...
+
+test-gui:
+	cd $(SRC_DIR) && $(GO) test ./gui/...
 
 install: build
 	@# Stop service if running
@@ -54,5 +57,5 @@ install-all: install install-gui
 
 clean:
 	rm -rf $(TARGET_DIR)
-	rm -rf $(SRC_DIR)/frontend/node_modules
-	rm -rf $(SRC_DIR)/frontend/dist
+	rm -rf $(SRC_DIR)/gui/frontend/node_modules
+	rm -rf $(SRC_DIR)/gui/frontend/dist

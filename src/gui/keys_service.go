@@ -1,5 +1,3 @@
-//go:build gui
-
 package main
 
 import (
@@ -16,9 +14,10 @@ type KeysService struct{}
 
 // KeyInfo represents a key entry
 type KeyInfo struct {
-	Hostname  string `json:"hostname"`
-	PublicKey string `json:"publicKey"`
-	IsLocal   bool   `json:"isLocal"`
+	Hostname    string `json:"hostname"`
+	PublicKey   string `json:"publicKey"`
+	Fingerprint string `json:"fingerprint"`
+	IsLocal     bool   `json:"isLocal"`
 }
 
 // AccessRequest represents a pending key access request

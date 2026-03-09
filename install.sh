@@ -15,6 +15,8 @@ USER_INSTALL=false
 INSTALL_PREFIX="/usr/local"
 BIN_DIR="$INSTALL_PREFIX/bin"
 ENV_SYNC_LOAD_LINE='eval "$(env-sync load --quiet 2>/dev/null)"'
+INSTALL_GUI=false
+INSTALL_CLI=true
 
 # GitHub repository
 GITHUB_REPO="championswimmer/env.sync.local"
@@ -29,11 +31,28 @@ while [[ $# -gt 0 ]]; do
             BIN_DIR="$INSTALL_PREFIX/bin"
             shift
             ;;
+        --gui)
+            INSTALL_GUI=true
+            shift
+            ;;
+        --all)
+            INSTALL_GUI=true
+            INSTALL_CLI=true
+            shift
+            ;;
+        --gui-only)
+            INSTALL_GUI=true
+            INSTALL_CLI=false
+            shift
+            ;;
         --help)
             echo "Usage: install.sh [options]"
             echo "Options:"
-            echo "  --user    Install to ~/.local (no sudo required)"
-            echo "  --help    Show this help"
+            echo "  --user      Install to ~/.local (no sudo required)"
+            echo "  --gui       Also install the GUI application"
+            echo "  --gui-only  Install only the GUI application (not CLI)"
+            echo "  --all       Install both CLI and GUI"
+            echo "  --help      Show this help"
             echo ""
             echo "Installation modes:"
             echo "  - Local mode: Run from cloned repository (builds from source)"
@@ -260,18 +279,44 @@ if [[ "$REMOTE_MODE" == "true" ]]; then
     echo -e "${GREEN}✓ Binary downloaded and installed${NC}"
 else
     # Local mode - build from source
-    echo "Building Go binary..."
+    echo "Building from source..."
     cd "$SCRIPT_DIR"
-    make build
 
-    if [[ ! -f "$SCRIPT_DIR/target/env-sync" ]]; then
-        echo -e "${RED}✗ Build failed - binary not found${NC}"
-        exit 1
+    if [[ "$INSTALL_CLI" == "true" ]]; then
+        echo "Building CLI binary..."
+        make build
+
+        if [[ ! -f "$SCRIPT_DIR/target/env-sync" ]]; then
+            echo -e "${RED}✗ CLI build failed - binary not found${NC}"
+            exit 1
+        fi
+
+        # Install Go binary
+        cp "$SCRIPT_DIR/target/env-sync" "$BIN_DIR/env-sync"
+        chmod +x "$BIN_DIR/env-sync"
+        echo -e "${GREEN}✓ CLI binary installed${NC}"
     fi
 
-    # Install Go binary
-    cp "$SCRIPT_DIR/target/env-sync" "$BIN_DIR/env-sync"
-    chmod +x "$BIN_DIR/env-sync"
+    if [[ "$INSTALL_GUI" == "true" ]]; then
+        echo "Building GUI binary..."
+
+        # Check for npm
+        if ! command -v npm >/dev/null 2>&1; then
+            echo -e "${RED}✗ npm is required to build the GUI. Install Node.js first.${NC}"
+            exit 1
+        fi
+
+        make build-gui
+
+        if [[ ! -f "$SCRIPT_DIR/target/env-sync-gui" ]]; then
+            echo -e "${RED}✗ GUI build failed - binary not found${NC}"
+            exit 1
+        fi
+
+        cp "$SCRIPT_DIR/target/env-sync-gui" "$BIN_DIR/env-sync-gui"
+        chmod +x "$BIN_DIR/env-sync-gui"
+        echo -e "${GREEN}✓ GUI binary installed${NC}"
+    fi
 fi
 
 # Restart service if it was stopped

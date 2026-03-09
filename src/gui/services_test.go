@@ -1,5 +1,3 @@
-//go:build gui
-
 package main
 
 import (
@@ -55,7 +53,6 @@ func TestModeServiceGetAvailableModes(t *testing.T) {
 	if len(modes) == 0 {
 		t.Error("No available modes returned")
 	}
-	// Should have at least 3 modes
 	if len(modes) < 3 {
 		t.Errorf("Expected at least 3 modes, got %d", len(modes))
 	}
@@ -81,7 +78,6 @@ func TestStatusServiceGetFileStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFileStatus error: %v", err)
 	}
-	// File may or may not exist, just check we get a path
 	if status.Path == "" {
 		t.Error("Path is empty")
 	}
@@ -100,7 +96,6 @@ func TestStatusServiceGetServerStatus(t *testing.T) {
 
 func TestStatusServiceIsServerRunning(t *testing.T) {
 	svc := &StatusService{}
-	// Should not panic, just return a bool
 	_ = svc.IsServerRunning()
 }
 
@@ -110,7 +105,6 @@ func TestCronServiceGetCronStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCronStatus error: %v", err)
 	}
-	// Should return valid info (installed may be true or false)
 	_ = info.Installed
 }
 
@@ -128,13 +122,11 @@ func TestBackupServiceListBackups(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListBackups error: %v", err)
 	}
-	// May be empty, just check no error
 	_ = backups
 }
 
 func TestLogServiceGetRecentLogs(t *testing.T) {
 	svc := &LogService{}
-	// Should not panic even with no log file
 	logs, _ := svc.GetRecentLogs(50)
 	_ = logs
 }
