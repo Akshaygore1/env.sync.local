@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Security modes explained | env-sync</title>
+    <meta
+      name="description"
+      content="Compare env-sync's three security modes: trusted-owner-ssh for personal fleets, secure-peer for cross-team collaboration, and dev-plaintext-http for debugging."
+    />
+    <link rel="canonical" href="https://envsync.arnav.tech/modes" />
+    <meta property="og:title" content="Security modes explained | env-sync" />
+    <meta
+      property="og:description"
+      content="Compare env-sync's three security modes: trusted-owner-ssh for personal fleets, secure-peer for cross-team collaboration, dev-plaintext-http for debugging."
+    />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://envsync.arnav.tech/modes" />
+    <meta
+      property="og:image"
+      content="https://envsync.arnav.tech/assets/cover.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Security modes explained | env-sync" />
+    <meta
+      name="twitter:description"
+      content="Three security modes for different trust boundaries: SSH, mTLS+AGE, or plaintext debug. Pick the one that fits."
+    />
+    <meta
+      name="twitter:image"
+      content="https://envsync.arnav.tech/assets/cover.png"
+    />
+    <meta
+      name="keywords"
+      content="env-sync modes, SSH sync, mTLS secrets, AGE encryption, trusted-owner, secure-peer, security modes"
+    />
+    <link rel="stylesheet" href="../styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="nav">
+        <a class="brand" href="../">env-sync</a>
+        <nav>
+          <ul>
+            <li class="dropdown">
+              <a href="../installation">Install</a>
+              <ul class="dropdown-menu">
+                <li><a href="../installation/quickstart">Quickstart</a></li>
+                <li>
+                  <a href="../installation/trusted-peers"
+                    >Trusted Peers Setup</a
+                  >
+                </li>
+                <li>
+                  <a href="../installation/secure-peers">Secure Peers Setup</a>
+                </li>
+              </ul>
+            </li>
+            <li><a href="../usage">Usage</a></li>
+            <li><a href="../modes">Modes</a></li>
+            <li><a href="../security">Security</a></li>
+            <li><a href="../comparisons">Comparisons</a></li>
+          </ul>
+        </nav>
+        <a
+          class="github-link"
+          href="https://github.com/championswimmer/env.sync.local"
+        >
+          <i class="fa-brands fa-github"></i> GitHub
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <div class="subpage-hero">
+        <h1>Three modes, one CLI</h1>
+        <p>
+          env-sync gives you explicit control over how secrets are stored,
+          transported, and who gets access. Pick the security model that fits
+          your scenario.
+        </p>
+      </div>
+
+      <section class="panel">
+        <h2>Mode comparison</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>dev-plaintext-http</th>
+              <th>trusted-owner-ssh</th>
+              <th>secure-peer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Storage encryption</strong></td>
+              <td>Plaintext</td>
+              <td>Plaintext (optional AGE)</td>
+              <td>AGE encrypted (mandatory)</td>
+            </tr>
+            <tr>
+              <td><strong>Transport security</strong></td>
+              <td>HTTP (plaintext)</td>
+              <td>SCP / SSH</td>
+              <td>HTTPS + mTLS</td>
+            </tr>
+            <tr>
+              <td><strong>Authentication</strong></td>
+              <td>None</td>
+              <td>SSH keys</td>
+              <td>Mutual TLS certificates</td>
+            </tr>
+            <tr>
+              <td><strong>Authorization</strong></td>
+              <td>Open to all peers</td>
+              <td>Implicit via SSH trust</td>
+              <td>Explicit approval required</td>
+            </tr>
+            <tr>
+              <td><strong>Onboarding</strong></td>
+              <td>Automatic discovery</td>
+              <td>Zero-touch if SSH configured</td>
+              <td>Invitation-based</td>
+            </tr>
+            <tr>
+              <td><strong>Use case</strong></td>
+              <td>Local debugging only</td>
+              <td>Personal device fleet</td>
+              <td>Cross-team collaboration</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Mode A : dev-plaintext-http</h2>
+        <p><strong>Purpose:</strong> Quick local debugging with test data</p>
+        <p>
+          This mode provides zero security — no encryption, no authentication.
+          Secrets are transmitted and stored in plaintext. Use exclusively for
+          throwaway testing environments with fake credentials.
+        </p>
+
+        <h3>Technical details</h3>
+        <ul>
+          <li>
+            <strong>Storage:</strong> Plaintext <code>.secrets.env</code> file
+          </li>
+          <li><strong>Transport:</strong> HTTP on port 5739</li>
+          <li><strong>Discovery:</strong> mDNS broadcasts on local network</li>
+          <li><strong>Access control:</strong> None — any peer can sync</li>
+        </ul>
+
+        <div class="callout callout--warning">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            <strong>Warning:</strong> Never use this mode with real credentials.
+            All data is visible to anyone on your network.
+          </div>
+        </div>
+
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">enable dev mode</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code>env-sync mode set dev-plaintext-http</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>
+          Mode B : trusted-owner-ssh
+          <span class="badge badge--green">default</span>
+        </h2>
+        <p><strong>Purpose:</strong> Sync secrets across your own machines</p>
+        <p>
+          Ideal when all devices belong to you. Leverages existing SSH
+          infrastructure for encrypted transport and authentication. Storage is
+          plaintext by default since trust is already broad in this model —
+          optional AGE encryption available for additional protection.
+        </p>
+
+        <h3>Technical details</h3>
+        <ul>
+          <li>
+            <strong>Storage:</strong> Plaintext by default, AGE encryption
+            optional
+          </li>
+          <li><strong>Transport:</strong> SCP over SSH (encrypted)</li>
+          <li>
+            <strong>Discovery:</strong> mDNS, filtered by SSH reachability test
+          </li>
+          <li>
+            <strong>Authentication:</strong> SSH key pairs (your existing
+            <code>~/.ssh</code> keys)
+          </li>
+          <li>
+            <strong>Authorization:</strong> Implicit — if you have SSH access,
+            you can sync
+          </li>
+        </ul>
+
+        <h3>Sync workflow</h3>
+        <ol>
+          <li>Discover peers via mDNS announcements</li>
+          <li>Test SSH connectivity to each discovered peer</li>
+          <li>Fetch <code>.secrets.env</code> from reachable peers via SCP</li>
+          <li>Compare file versions using metadata timestamps</li>
+          <li>Merge changes with per-key conflict resolution</li>
+          <li>Write updated file locally with automatic backup</li>
+        </ol>
+
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">enable trusted-owner mode</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code>env-sync mode set trusted-owner-ssh</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Mode C : secure-peer</h2>
+        <p>
+          <strong>Purpose:</strong> Share secrets across teams without shell
+          access
+        </p>
+        <p>
+          Designed for collaboration between different owners. No SSH access
+          required or shared. Uses mTLS for transport authentication and AGE for
+          at-rest encryption. Every peer must be explicitly invited and
+          approved.
+        </p>
+
+        <h3>Technical details</h3>
+        <ul>
+          <li><strong>Storage:</strong> AGE encrypted (mandatory)</li>
+          <li>
+            <strong>Transport:</strong> HTTPS with mutual TLS (client + server
+            certificates)
+          </li>
+          <li><strong>Discovery:</strong> mDNS announcements</li>
+          <li>
+            <strong>Authentication:</strong> TLS certificate verification +
+            certificate pinning
+          </li>
+          <li>
+            <strong>Authorization:</strong> Explicit — peers have
+            <code>pending</code>, <code>approved</code>, or
+            <code>revoked</code> status
+          </li>
+          <li>
+            <strong>Encryption:</strong> Each secret encrypted to multiple AGE
+            recipients
+          </li>
+        </ul>
+
+        <h3>Sync workflow</h3>
+        <ol>
+          <li>Discover peers via mDNS</li>
+          <li>
+            Establish mTLS connection and verify peer authorization status
+          </li>
+          <li>Fetch encrypted secrets via HTTPS endpoint</li>
+          <li>Decrypt using local AGE private key</li>
+          <li>Merge changes with per-key timestamps</li>
+          <li>Re-encrypt to all approved recipients (AGE public keys)</li>
+          <li>Save with automatic backup</li>
+          <li>Fetch and replay signed membership events for offline peers</li>
+        </ol>
+
+        <h3>Peer management</h3>
+        <ul>
+          <li>
+            <strong>Invitation:</strong> Generate time-limited enrollment token
+          </li>
+          <li>
+            <strong>Request access:</strong> New peer sends token + identity
+          </li>
+          <li>
+            <strong>Approval:</strong> Existing peer approves, adds to registry
+          </li>
+          <li>
+            <strong>Trust propagation:</strong> Signed membership events
+            replicate approval across network
+          </li>
+          <li>
+            <strong>Revocation:</strong> Remove peer access at any time,
+            propagates automatically
+          </li>
+        </ul>
+
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">enable secure-peer mode</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code>env-sync mode set secure-peer</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Choosing the right mode</h2>
+
+        <h3>Use trusted-owner-ssh when:</h3>
+        <ul>
+          <li>All machines belong to you</li>
+          <li>You already manage SSH keys across your devices</li>
+          <li>Your threat model accepts plaintext at-rest storage</li>
+          <li>You want zero-configuration setup</li>
+        </ul>
+        <p><a href="../installation/trusted-peers">Setup guide →</a></p>
+
+        <h3>Use secure-peer when:</h3>
+        <ul>
+          <li>Multiple people need access to the same secrets</li>
+          <li>You don't want to share shell access between machines</li>
+          <li>At-rest encryption is required</li>
+          <li>You need explicit peer approval/revocation</li>
+        </ul>
+        <p><a href="../installation/secure-peers">Setup guide →</a></p>
+
+        <h3>Use dev-plaintext-http when:</h3>
+        <ul>
+          <li>Testing env-sync locally</li>
+          <li>Working with fake/throwaway credentials</li>
+          <li>Speed matters more than security</li>
+        </ul>
+        <p><a href="../installation/quickstart">Quickstart →</a></p>
+      </section>
+
+      <section class="cta-banner">
+        <h2>Ready to get started?</h2>
+        <p>
+          Install env-sync and initialize with your preferred security mode.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="../installation">Install now</a>
+          <a class="btn btn-secondary" href="../security">Security deep-dive</a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <div>
+          <div class="footer-brand">env-sync</div>
+          <p>Distributed .env sync for local networks.</p>
+          <p>
+            Open source <span class="separator">|</span>
+            <a href="https://github.com/championswimmer/env.sync.local"
+              ><i class="fa-brands fa-github"></i> GitHub</a
+            >
+          </p>
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Install</h4>
+            <a href="../installation/quickstart">Quickstart</a>
+            <a href="../installation/trusted-peers">Trusted Peers</a>
+            <a href="../installation/secure-peers">Secure Peers</a>
+          </div>
+          <div>
+            <h4>Product</h4>
+            <a href="../usage">Usage</a>
+            <a href="../modes">Modes</a>
+            <a href="../security">Security</a>
+          </div>
+          <div>
+            <h4>Compare</h4>
+            <a href="../comparisons/vault-vs-envsync">vs Vault</a>
+            <a href="../comparisons/infisical-vs-envsync">vs Infisical</a>
+            <a href="../comparisons/doppler-vs-envsync">vs Doppler</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+          (window.posthog && window.posthog.__loaded) ||
+          ((window.posthog = e),
+          (e._i = []),
+          (e.init = function (i, s, a) {
+            function g(t, e) {
+              var o = e.split(".");
+              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                (t[e] = function () {
+                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+                }));
+            }
+            (((p = t.createElement("script")).type = "text/javascript"),
+              (p.crossOrigin = "anonymous"),
+              (p.async = !0),
+              (p.src =
+                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                "/static/array.js"),
+              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                p,
+                r,
+              ));
+            var u = e;
+            for (
+              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                u.people = u.people || [],
+                u.toString = function (t) {
+                  var e = "posthog";
+                  return (
+                    "posthog" !== a && (e += "." + a),
+                    t || (e += " (stub)"),
+                    e
+                  );
+                },
+                u.people.toString = function () {
+                  return u.toString(1) + ".people (stub)";
+                },
+                o =
+                  "fi init Ci Mi ft Fi Ai Ri capture calculateEventProperties Ui register register_once register_for_session unregister unregister_for_session qi getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Hi ji createPersonProfile setInternalOrTestUser Bi Pi Vi opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Di debug bt zi getPageViewId captureTraceFeedback captureTraceMetric Si".split(
+                    " ",
+                  ),
+                n = 0;
+              n < o.length;
+              n++
+            )
+              g(u, o[n]);
+            e._i.push([i, s, a]);
+          }),
+          (e.__SV = 1));
+      })(document, window.posthog || []);
+      posthog.init("phc_BrfRxNDklIQEZmAK27UZ2PAdnMHjCBPKRB3fWtOsF9c", {
+        api_host: "https://us.i.posthog.com",
+        defaults: "2026-01-30",
+        person_profiles: "identified_only",
+      });
+    </script>
+  </body>
+</html>
