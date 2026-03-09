@@ -9,9 +9,9 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  # ── CLI: cross-compile all 6 targets from a single runner ──
+  build-cli:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,32 +23,111 @@ jobs:
         with:
           go-version: '1.24'
 
+      - name: Build CLI binaries for all platforms
+        run: |
+          mkdir -p dist
+          cd src
+          GOOS=windows GOARCH=amd64 go build -o ../dist/env-sync-windows-amd64.exe    -ldflags "-s -w" ./cmd/env-sync
+          GOOS=windows GOARCH=arm64 go build -o ../dist/env-sync-windows-arm64.exe    -ldflags "-s -w" ./cmd/env-sync
+          GOOS=darwin  GOARCH=amd64 go build -o ../dist/env-sync-macos-amd64          -ldflags "-s -w" ./cmd/env-sync
+          GOOS=darwin  GOARCH=arm64 go build -o ../dist/env-sync-macos-arm64          -ldflags "-s -w" ./cmd/env-sync
+          GOOS=linux   GOARCH=arm64 go build -o ../dist/env-sync-linux-arm64          -ldflags "-s -w" ./cmd/env-sync
+          GOOS=linux   GOARCH=amd64 go build -o ../dist/env-sync-linux-amd64          -ldflags "-s -w" ./cmd/env-sync
+
+      - name: Upload CLI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-dist
+          path: dist/
+
+  # ── GUI: native build per OS (CGO required for WebView) ──
+  build-gui:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            output: env-sync-gui-linux-amd64
+            go-build-tags: webkit2_41
+          - os: macos-latest
+            output: env-sync-gui-macos-arm64
+            go-build-tags: ""
+          - os: macos-13
+            output: env-sync-gui-macos-amd64
+            go-build-tags: ""
+          - os: windows-latest
+            output: env-sync-gui-windows-amd64.exe
+            go-build-tags: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/gui/frontend/package-lock.json
+
+      - name: Install Linux WebView dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+
+      - name: Build frontend
+        working-directory: src/gui/frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build GUI binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          cd src
+          TAGS="${{ matrix.go-build-tags }}"
+          if [ -n "$TAGS" ]; then
+            CGO_ENABLED=1 go build -tags "$TAGS" -ldflags "-s -w" -o ../dist/${{ matrix.output }} ./gui
+          else
+            CGO_ENABLED=1 go build -ldflags "-s -w" -o ../dist/${{ matrix.output }} ./gui
+          fi
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-${{ matrix.output }}
+          path: dist/${{ matrix.output }}
+
+  # ── Collect everything and publish the GitHub Release ──
+  release:
+    needs: [build-cli, build-gui]
+    runs-on: ubuntu-latest
+    steps:
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Build binaries for all platforms
-        run: |
-          mkdir -p dist
-          cd src
+      - name: Download CLI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-dist
+          path: dist/
 
-          # Windows amd64
-          GOOS=windows GOARCH=amd64 go build -o ../dist/env-sync-windows-amd64.exe -ldflags "-s -w" ./cmd/env-sync
-
-          # Windows ARM64
-          GOOS=windows GOARCH=arm64 go build -o ../dist/env-sync-windows-arm64.exe -ldflags "-s -w" ./cmd/env-sync
-
-          # macOS amd64
-          GOOS=darwin GOARCH=amd64 go build -o ../dist/env-sync-macos-amd64 -ldflags "-s -w" ./cmd/env-sync
-
-          # macOS ARM64
-          GOOS=darwin GOARCH=arm64 go build -o ../dist/env-sync-macos-arm64 -ldflags "-s -w" ./cmd/env-sync
-
-          # Linux ARM64
-          GOOS=linux GOARCH=arm64 go build -o ../dist/env-sync-linux-arm64 -ldflags "-s -w" ./cmd/env-sync
-
-          # Linux amd64
-          GOOS=linux GOARCH=amd64 go build -o ../dist/env-sync-linux-amd64 -ldflags "-s -w" ./cmd/env-sync
+      - name: Download GUI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gui-*
+          path: dist/
+          merge-multiple: true
 
       - name: Generate checksums
         run: |
@@ -59,14 +138,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/env-sync-windows-amd64.exe
-            dist/env-sync-windows-arm64.exe
-            dist/env-sync-macos-amd64
-            dist/env-sync-macos-arm64
-            dist/env-sync-linux-arm64
-            dist/env-sync-linux-amd64
-            dist/checksums.txt
+          files: dist/*
           draft: false
           prerelease: false
           generate_release_notes: true
