@@ -25,6 +25,8 @@ curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 curl -fsSL https://envsync.arnav.tech/install.sh | bash -s -- --user
 ```
 
+The installer defaults to the CLI. Add `--all` to install both the CLI and desktop GUI, or use `--gui-only` to install just the GUI app.
+
 See [INSTALLATION.md](./docs/INSTALLATION.md) for detailed platform-specific instructions.
 
 ### Initial Setup

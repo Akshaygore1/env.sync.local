@@ -1,88 +1,136 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Usage guide | env-sync</title>
-  <meta name="description" content="Complete env-sync usage reference: manage modes, peers, secrets, sync, backups, cron, and service lifecycle from the CLI." />
-  <link rel="canonical" href="https://envsync.arnav.tech/usage" />
-  <meta property="og:title" content="Usage guide | env-sync CLI reference" />
-  <meta property="og:description" content="Complete env-sync CLI reference: manage modes, peers, secrets, sync, backups, cron, and service lifecycle." />
-  <meta property="og:type" content="article" />
-  <meta property="og:url" content="https://envsync.arnav.tech/usage" />
-  <meta property="og:image" content="https://envsync.arnav.tech/assets/cover.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Usage guide | env-sync CLI reference" />
-  <meta name="twitter:description" content="Complete env-sync CLI reference: manage modes, peers, secrets, sync, backups, cron, and service lifecycle." />
-  <meta name="twitter:image" content="https://envsync.arnav.tech/assets/cover.png" />
-  <meta name="keywords" content="env-sync usage, env-sync CLI, secrets sync commands, peer management, dotenv sync guide" />
-  <link rel="stylesheet" href="../styles.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css" />
-</head>
-<body>
-
-<header>
-  <div class="nav">
-    <a class="brand" href="../">env-sync</a>
-    <nav>
-      <ul>
-        <li class="dropdown">
-          <a href="../installation">Install</a>
-          <ul class="dropdown-menu">
-            <li><a href="../installation/quickstart">Quickstart</a></li>
-            <li><a href="../installation/trusted-peers">Trusted Peers Setup</a></li>
-            <li><a href="../installation/secure-peers">Secure Peers Setup</a></li>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Usage guide | env-sync</title>
+    <meta
+      name="description"
+      content="Complete env-sync usage reference: manage modes, peers, secrets, sync, backups, cron, and service lifecycle from the CLI."
+    />
+    <link rel="canonical" href="https://envsync.arnav.tech/usage" />
+    <meta property="og:title" content="Usage guide | env-sync CLI reference" />
+    <meta
+      property="og:description"
+      content="Complete env-sync CLI reference: manage modes, peers, secrets, sync, backups, cron, and service lifecycle."
+    />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://envsync.arnav.tech/usage" />
+    <meta
+      property="og:image"
+      content="https://envsync.arnav.tech/assets/cover.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Usage guide | env-sync CLI reference" />
+    <meta
+      name="twitter:description"
+      content="Complete env-sync CLI reference: manage modes, peers, secrets, sync, backups, cron, and service lifecycle."
+    />
+    <meta
+      name="twitter:image"
+      content="https://envsync.arnav.tech/assets/cover.png"
+    />
+    <meta
+      name="keywords"
+      content="env-sync usage, env-sync CLI, secrets sync commands, peer management, dotenv sync guide"
+    />
+    <link rel="stylesheet" href="../styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="nav">
+        <a class="brand" href="../">env-sync</a>
+        <nav>
+          <ul>
+            <li class="dropdown">
+              <a href="../installation">Install</a>
+              <ul class="dropdown-menu">
+                <li><a href="../installation/quickstart">Quickstart</a></li>
+                <li>
+                  <a href="../installation/trusted-peers"
+                    >Trusted Peers Setup</a
+                  >
+                </li>
+                <li>
+                  <a href="../installation/secure-peers">Secure Peers Setup</a>
+                </li>
+              </ul>
+            </li>
+            <li><a href="../usage">Usage</a></li>
+            <li><a href="../modes">Modes</a></li>
+            <li><a href="../security">Security</a></li>
+            <li><a href="../comparisons">Comparisons</a></li>
           </ul>
-        </li>
-        <li><a href="../usage">Usage</a></li>
-        <li><a href="../modes">Modes</a></li>
-        <li><a href="../security">Security</a></li>
-        <li><a href="../comparisons">Comparisons</a></li>
-      </ul>
-    </nav>
-    <a class="github-link" href="https://github.com/championswimmer/env.sync.local">
-      <i class="fa-brands fa-github"></i> GitHub
-    </a>
-  </div>
-</header>
-
-<main>
-  <div class="subpage-hero">
-    <h1>Usage guide</h1>
-    <p>Everything you can do with env-sync — from adding your first secret to managing peer access across machines.</p>
-  </div>
-
-  <section class="panel">
-    <h2><i class="fa-solid fa-bolt"></i>&nbsp; Quick commands</h2>
-    <p>The most common commands you will use day to day:</p>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">common commands</span>
+        </nav>
+        <a
+          class="github-link"
+          href="https://github.com/championswimmer/env.sync.local"
+        >
+          <i class="fa-brands fa-github"></i> GitHub
+        </a>
       </div>
-      <div class="terminal-body">
-        <pre><code>env-sync              <span class="comment"># sync secrets from peers</span>
-env-sync status       <span class="comment"># show current mode, host, peer count</span>
-env-sync discover     <span class="comment"># list discovered peers on the network</span>
-env-sync --help       <span class="comment"># full command reference</span></code></pre>
-      </div>
-    </div>
-  </section>
+    </header>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-sliders"></i>&nbsp; Mode management</h2>
-    <p>Switch between security modes at any time. Mode switching is non-destructive by default.</p>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">mode commands</span>
+    <main>
+      <div class="subpage-hero">
+        <h1>Usage guide</h1>
+        <p>
+          Everything you can do with env-sync — from adding your first secret to
+          managing peer access across machines.
+        </p>
       </div>
-      <div class="terminal-body">
-        <pre><code><span class="comment"># check current mode</span>
+
+      <section class="panel">
+        <h2><i class="fa-solid fa-bolt"></i>&nbsp; Quick commands</h2>
+        <p>The most common commands you will use day to day:</p>
+        <pre><code>env-sync              # sync secrets from peers
+env-sync status       # show current mode, host, peer count
+env-sync discover     # list discovered peers on the network
+env-sync --help       # full command reference</code></pre>
+      </section>
+
+      <section class="panel">
+        <h2>Desktop GUI</h2>
+        <p>
+          Prefer a visual workflow? Install <code>env-sync-gui</code> with
+          <code>--all</code> or <code>--gui-only</code> and launch the desktop
+          app alongside the CLI.
+        </p>
+        <p>
+          The GUI works on the same <code>~/.config/env-sync/</code> state as
+          the CLI, so secrets, peers, keys, backups, and mode changes stay in
+          sync whichever interface you use.
+        </p>
+        <p>
+          Inside the app, the dashboard gives you status at a glance, while
+          dedicated views handle secrets, sync, peers, keys, settings, and logs.
+          For the complete GUI guide, see
+          <a
+            href="https://github.com/championswimmer/env.sync.local/blob/main/docs/GUI.md"
+            >GUI.md</a
+          >.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2><i class="fa-solid fa-sliders"></i>&nbsp; Mode management</h2>
+        <p>
+          Switch between security modes at any time. Mode switching is
+          non-destructive by default.
+        </p>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">mode commands</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="comment"># check current mode</span>
 env-sync mode get
 
 <span class="comment"># switch modes</span>
@@ -95,22 +143,25 @@ env-sync mode set secure-peer --yes
 
 <span class="comment"># clean up old mode artifacts</span>
 env-sync mode set trusted-owner-ssh --prune-old-material --yes</code></pre>
-      </div>
-    </div>
-  </section>
+          </div>
+        </div>
+      </section>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-users"></i>&nbsp; Peer management</h2>
-    <p><span class="badge">secure-peer</span> mode — invitation-based access with explicit approval:</p>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">peer commands (secure-peer mode)</span>
-      </div>
-      <div class="terminal-body">
-        <pre><code><span class="comment"># create invitation</span>
+      <section class="panel">
+        <h2><i class="fa-solid fa-users"></i>&nbsp; Peer management</h2>
+        <p>
+          <span class="badge">secure-peer</span> mode — invitation-based access
+          with explicit approval:
+        </p>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">peer commands (secure-peer mode)</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="comment"># create invitation</span>
 env-sync peer invite --expires 1h
 
 <span class="comment"># request access to a network</span>
@@ -123,22 +174,27 @@ env-sync peer revoke compromised-host.local
 
 <span class="comment"># view trust details</span>
 env-sync peer trust show hostname.local</code></pre>
-      </div>
-    </div>
-    <p><span class="badge">trusted-owner</span> mode — any SSH-reachable peer can sync without approval.</p>
-  </section>
+          </div>
+        </div>
+        <p>
+          <span class="badge">trusted-owner</span> mode — any SSH-reachable peer
+          can sync without approval.
+        </p>
+      </section>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-key"></i>&nbsp; Secret &amp; sync operations</h2>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">secrets management</span>
-      </div>
-      <div class="terminal-body">
-        <pre><code><span class="comment"># manage secrets</span>
+      <section class="panel">
+        <h2>
+          <i class="fa-solid fa-key"></i>&nbsp; Secret &amp; sync operations
+        </h2>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">secrets management</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="comment"># manage secrets</span>
 env-sync add KEY="value"
 env-sync remove KEY
 env-sync list
@@ -146,17 +202,17 @@ env-sync show KEY
 
 <span class="comment"># load secrets into shell</span>
 eval "$(env-sync load 2>/dev/null)"</code></pre>
-      </div>
-    </div>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">sync operations</span>
-      </div>
-      <div class="terminal-body">
-        <pre><code><span class="comment"># sync with all peers</span>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">sync operations</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="comment"># sync with all peers</span>
 env-sync sync
 
 <span class="comment"># sync with specific peer</span>
@@ -167,42 +223,47 @@ env-sync sync --force-pull hostname.local
 
 <span class="comment"># preview changes without applying</span>
 env-sync sync --dry-run</code></pre>
-      </div>
-    </div>
-    <div class="callout callout--info">
-      <i class="fa-solid fa-circle-info"></i>
-      <div><code>--force-pull</code> fully overwrites local secrets from the selected host. A backup is created first.</div>
-    </div>
-  </section>
+          </div>
+        </div>
+        <div class="callout callout--info">
+          <i class="fa-solid fa-circle-info"></i>
+          <div>
+            <code>--force-pull</code> fully overwrites local secrets from the
+            selected host. A backup is created first.
+          </div>
+        </div>
+      </section>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-server"></i>&nbsp; Service &amp; automation</h2>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">background service</span>
-      </div>
-      <div class="terminal-body">
-        <pre><code><span class="comment"># start server daemon</span>
+      <section class="panel">
+        <h2>
+          <i class="fa-solid fa-server"></i>&nbsp; Service &amp; automation
+        </h2>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">background service</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="comment"># start server daemon</span>
 env-sync serve -d
 
 <span class="comment"># manage service</span>
 env-sync service stop
 env-sync service restart
 env-sync service uninstall</code></pre>
-      </div>
-    </div>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">automatic sync (cron)</span>
-      </div>
-      <div class="terminal-body">
-        <pre><code><span class="comment"># install cron job (default: every 30 min)</span>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">automatic sync (cron)</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="comment"># install cron job (default: every 30 min)</span>
 env-sync cron --install --interval 30
 
 <span class="comment"># view current cron schedule</span>
@@ -210,41 +271,47 @@ env-sync cron --show
 
 <span class="comment"># remove cron job</span>
 env-sync cron --remove</code></pre>
-      </div>
-    </div>
-  </section>
+          </div>
+        </div>
+      </section>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-clock-rotate-left"></i>&nbsp; Backups &amp; restore</h2>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">backup management</span>
-      </div>
-      <div class="terminal-body">
-        <pre><code><span class="comment"># list available backups</span>
+      <section class="panel">
+        <h2>
+          <i class="fa-solid fa-clock-rotate-left"></i>&nbsp; Backups &amp;
+          restore
+        </h2>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">backup management</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="comment"># list available backups</span>
 env-sync restore
 
 <span class="comment"># restore specific backup</span>
 env-sync restore 1</code></pre>
-      </div>
-    </div>
-    <p>Backups are created automatically before any destructive operation. The last 5 backups are kept.</p>
-  </section>
+          </div>
+        </div>
+        <p>
+          Backups are created automatically before any destructive operation.
+          The last 5 backups are kept.
+        </p>
+      </section>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-bug"></i>&nbsp; Troubleshooting</h2>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot terminal-dot--red"></span>
-        <span class="terminal-dot terminal-dot--yellow"></span>
-        <span class="terminal-dot terminal-dot--green"></span>
-        <span class="terminal-title">debugging</span>
-      </div>
-      <div class="terminal-body">
-        <pre><code><span class="comment"># check the log file</span>
+      <section class="panel">
+        <h2><i class="fa-solid fa-bug"></i>&nbsp; Troubleshooting</h2>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot terminal-dot--red"></span>
+            <span class="terminal-dot terminal-dot--yellow"></span>
+            <span class="terminal-dot terminal-dot--green"></span>
+            <span class="terminal-title">debugging</span>
+          </div>
+          <div class="terminal-body">
+            <pre><code><span class="comment"># check the log file</span>
 tail -f ~/.config/env-sync/logs/env-sync.log
 
 <span class="comment"># verbose output</span>
@@ -252,57 +319,115 @@ env-sync sync --verbose
 
 <span class="comment"># verify network connectivity</span>
 env-sync discover</code></pre>
-      </div>
-    </div>
-  </section>
+          </div>
+        </div>
+      </section>
 
-  <section class="cta-banner">
-    <h2>Need help choosing a mode?</h2>
-    <p>Learn about the three security models and when to use each one.</p>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="../modes">Mode comparison <i class="fa-solid fa-arrow-right"></i></a>
-      <a class="btn btn-secondary" href="../security">Security details</a>
-    </div>
-  </section>
-</main>
+      <section class="cta-banner">
+        <h2>Need help choosing a mode?</h2>
+        <p>Learn about the three security models and when to use each one.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="../modes"
+            >Mode comparison <i class="fa-solid fa-arrow-right"></i
+          ></a>
+          <a class="btn btn-secondary" href="../security">Security details</a>
+        </div>
+      </section>
+    </main>
 
-<footer>
-  <div class="footer-inner">
-    <div>
-      <div class="footer-brand">env-sync</div>
-      <p>Distributed .env sync for local networks.</p>
-      <p>Open source <span class="separator">|</span> <a href="https://github.com/championswimmer/env.sync.local"><i class="fa-brands fa-github"></i> GitHub</a></p>
-    </div>
-    <div class="footer-links">
-      <div>
-        <h4>Install</h4>
-        <a href="../installation/quickstart">Quickstart</a>
-        <a href="../installation/trusted-peers">Trusted Peers</a>
-        <a href="../installation/secure-peers">Secure Peers</a>
+    <footer>
+      <div class="footer-inner">
+        <div>
+          <div class="footer-brand">env-sync</div>
+          <p>Distributed .env sync for local networks.</p>
+          <p>
+            Open source <span class="separator">|</span>
+            <a href="https://github.com/championswimmer/env.sync.local"
+              ><i class="fa-brands fa-github"></i> GitHub</a
+            >
+          </p>
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Install</h4>
+            <a href="../installation/quickstart">Quickstart</a>
+            <a href="../installation/trusted-peers">Trusted Peers</a>
+            <a href="../installation/secure-peers">Secure Peers</a>
+          </div>
+          <div>
+            <h4>Product</h4>
+            <a href="../usage">Usage</a>
+            <a href="../modes">Modes</a>
+            <a href="../security">Security</a>
+          </div>
+          <div>
+            <h4>Compare</h4>
+            <a href="../comparisons/vault-vs-envsync">vs Vault</a>
+            <a href="../comparisons/infisical-vs-envsync">vs Infisical</a>
+            <a href="../comparisons/doppler-vs-envsync">vs Doppler</a>
+          </div>
+        </div>
       </div>
-      <div>
-        <h4>Product</h4>
-        <a href="../usage">Usage</a>
-        <a href="../modes">Modes</a>
-        <a href="../security">Security</a>
-      </div>
-      <div>
-        <h4>Compare</h4>
-        <a href="../comparisons/vault-vs-envsync">vs Vault</a>
-        <a href="../comparisons/infisical-vs-envsync">vs Infisical</a>
-        <a href="../comparisons/doppler-vs-envsync">vs Doppler</a>
-      </div>
-    </div>
-  </div>
-</footer>
+    </footer>
 
-<script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="fi init Ci Mi ft Fi Ai Ri capture calculateEventProperties Ui register register_once register_for_session unregister unregister_for_session qi getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Hi ji createPersonProfile setInternalOrTestUser Bi Pi Vi opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Di debug bt zi getPageViewId captureTraceFeedback captureTraceMetric Si".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_BrfRxNDklIQEZmAK27UZ2PAdnMHjCBPKRB3fWtOsF9c', {
-        api_host: 'https://us.i.posthog.com',
-        defaults: '2026-01-30',
-        person_profiles: 'identified_only',
-    })
-</script>
-</body>
+    <script>
+      !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+          (window.posthog && window.posthog.__loaded) ||
+          ((window.posthog = e),
+          (e._i = []),
+          (e.init = function (i, s, a) {
+            function g(t, e) {
+              var o = e.split(".");
+              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                (t[e] = function () {
+                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+                }));
+            }
+            (((p = t.createElement("script")).type = "text/javascript"),
+              (p.crossOrigin = "anonymous"),
+              (p.async = !0),
+              (p.src =
+                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                "/static/array.js"),
+              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                p,
+                r,
+              ));
+            var u = e;
+            for (
+              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                u.people = u.people || [],
+                u.toString = function (t) {
+                  var e = "posthog";
+                  return (
+                    "posthog" !== a && (e += "." + a),
+                    t || (e += " (stub)"),
+                    e
+                  );
+                },
+                u.people.toString = function () {
+                  return u.toString(1) + ".people (stub)";
+                },
+                o =
+                  "fi init Ci Mi ft Fi Ai Ri capture calculateEventProperties Ui register register_once register_for_session unregister unregister_for_session qi getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Hi ji createPersonProfile setInternalOrTestUser Bi Pi Vi opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Di debug bt zi getPageViewId captureTraceFeedback captureTraceMetric Si".split(
+                    " ",
+                  ),
+                n = 0;
+              n < o.length;
+              n++
+            )
+              g(u, o[n]);
+            e._i.push([i, s, a]);
+          }),
+          (e.__SV = 1));
+      })(document, window.posthog || []);
+      posthog.init("phc_BrfRxNDklIQEZmAK27UZ2PAdnMHjCBPKRB3fWtOsF9c", {
+        api_host: "https://us.i.posthog.com",
+        defaults: "2026-01-30",
+        person_profiles: "identified_only",
+      });
+    </script>
+  </body>
 </html>
