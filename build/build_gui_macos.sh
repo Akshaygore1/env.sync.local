@@ -15,7 +15,7 @@ for arch in amd64 arm64; do
   PATH="$HOME/go/bin:$PATH" \
   CGO_ENABLED=1 \
   CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
-  wails build -clean -pack -platform "darwin/${arch}"
+  wails build -clean -platform "darwin/${arch}"
 
   stage_dir="$(mktemp -d)"
   cp -R build/bin/env-sync.app "$stage_dir/env-sync.app"

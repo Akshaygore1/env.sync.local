@@ -10,7 +10,7 @@ Set-Location $guiDir
 $env:PATH = "$env:USERPROFILE\go\bin;$env:PATH"
 $env:CGO_ENABLED = '1'
 
-wails build -clean -pack -nsis -platform windows/amd64
+wails build -clean -nsis -platform windows/amd64
 
 $portable = Get-ChildItem build/bin -File -Filter '*.exe' |
   Where-Object { $_.Name -notmatch 'installer|setup' } |
