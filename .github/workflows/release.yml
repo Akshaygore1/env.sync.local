@@ -46,18 +46,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
-            output: env-sync-gui-linux-amd64
-            go-build-tags: webkit2_41
+          - os: ubuntu-latest
           - os: macos-latest
-            output: env-sync-gui-macos-arm64
-            go-build-tags: ""
-          - os: macos-13
-            output: env-sync-gui-macos-amd64
-            go-build-tags: ""
           - os: windows-latest
-            output: env-sync-gui-windows-amd64.exe
-            go-build-tags: ""
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
@@ -77,11 +68,30 @@ jobs:
           cache: 'npm'
           cache-dependency-path: src/gui/frontend/package-lock.json
 
-      - name: Install Linux WebView dependencies
+      - name: Install Linux dependencies (amd64 + arm64 cross)
         if: runner.os == 'Linux'
         run: |
+          sudo dpkg --add-architecture arm64
+
+          # Restrict existing sources to amd64
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo sed -i '/^Types:/a Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources
+          fi
+
+          # Add arm64 sources from ports.ubuntu.com
+          cat <<'SOURCES' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.sources > /dev/null
+          Types: deb
+          URIs: http://ports.ubuntu.com/ubuntu-ports/
+          Suites: noble noble-updates
+          Components: main restricted universe multiverse
+          Architectures: arm64
+          SOURCES
+
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config \
+            gcc-aarch64-linux-gnu \
+            libgtk-3-dev:arm64 libwebkit2gtk-4.1-dev:arm64
 
       - name: Build frontend
         working-directory: src/gui/frontend
@@ -89,23 +99,42 @@ jobs:
           npm ci
           npm run build
 
-      - name: Build GUI binary
+      - name: Build GUI binaries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p dist
+          cd src
+          CGO_ENABLED=1 go build -tags webkit2_41 -ldflags "-s -w" \
+            -o ../dist/env-sync-gui-linux-amd64 ./gui
+          CC=aarch64-linux-gnu-gcc \
+          PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig \
+          CGO_ENABLED=1 GOARCH=arm64 go build -tags webkit2_41 -ldflags "-s -w" \
+            -o ../dist/env-sync-gui-linux-arm64 ./gui
+
+      - name: Build GUI binaries (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          cd src
+          CGO_ENABLED=1 GOARCH=arm64 go build -ldflags "-s -w" \
+            -o ../dist/env-sync-gui-macos-arm64 ./gui
+          CGO_ENABLED=1 GOARCH=amd64 go build -ldflags "-s -w" \
+            -o ../dist/env-sync-gui-macos-amd64 ./gui
+
+      - name: Build GUI binaries (Windows)
+        if: runner.os == 'Windows'
         shell: bash
         run: |
           mkdir -p dist
           cd src
-          TAGS="${{ matrix.go-build-tags }}"
-          if [ -n "$TAGS" ]; then
-            CGO_ENABLED=1 go build -tags "$TAGS" -ldflags "-s -w" -o ../dist/${{ matrix.output }} ./gui
-          else
-            CGO_ENABLED=1 go build -ldflags "-s -w" -o ../dist/${{ matrix.output }} ./gui
-          fi
+          CGO_ENABLED=1 go build -ldflags "-s -w" \
+            -o ../dist/env-sync-gui-windows-amd64.exe ./gui
 
-      - name: Upload GUI artifact
+      - name: Upload GUI artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gui-${{ matrix.output }}
-          path: dist/${{ matrix.output }}
+          name: gui-${{ runner.os }}
+          path: dist/env-sync-gui-*
 
   # ── Collect everything and publish the GitHub Release ──
   release:
