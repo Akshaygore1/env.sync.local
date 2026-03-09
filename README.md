@@ -210,10 +210,14 @@ make build-all
 # Test
 make test
 
-# Install
-sudo make install          # CLI only
-sudo make install-gui      # GUI only
-sudo make install-all      # Both
+# Install CLI only
+sudo make install
+
+# Install GUI into the platform app location
+sudo ./install.sh --gui-only
+
+# Install both CLI + GUI
+sudo ./install.sh --all
 ```
 
 See [INSTALLATION.md](./docs/INSTALLATION.md) for more options.

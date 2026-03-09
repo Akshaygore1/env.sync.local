@@ -50,9 +50,12 @@ curl -fsSL https://envsync.arnav.tech/install.sh | bash -s -- --user
 ### What the Installer Does
 
 1. Detects your platform (Linux/macOS)
-2. Downloads or builds the Go binary
-3. Installs to `/usr/local/bin` (system) or `~/.local/bin` (user)
-4. If a service is running, stops it, upgrades, and restarts automatically
+2. Downloads or builds the requested CLI and/or GUI artifacts
+3. Installs the CLI to `/usr/local/bin` (system) or `~/.local/bin` (user)
+4. Installs the GUI to `/Applications` / `~/Applications` on macOS, or into XDG app locations on Linux
+5. If a CLI service is running, stops it, upgrades, and restarts automatically
+
+For macOS GUI releases, GitHub Releases publishes separate `amd64` and `arm64` DMG files containing `env-sync.app`.
 
 ### Manual Binary Install
 
@@ -104,6 +107,12 @@ sudo ./install.sh
 
 # Or install to ~/.local/bin (user-only)
 ./install.sh --user
+
+# Install GUI only in the proper desktop-app location
+sudo ./install.sh --gui-only
+
+# Install both CLI + GUI
+sudo ./install.sh --all
 ```
 
 ## Platform-Specific Notes

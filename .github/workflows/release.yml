@@ -47,8 +47,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            artifact_name: gui-linux
           - os: macos-latest
+            artifact_name: gui-macos
           - os: windows-latest
+            artifact_name: gui-windows
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
@@ -67,6 +70,25 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: src/gui/frontend/package-lock.json
+
+      - name: Set GUI metadata version
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path("src/gui/wails.json")
+          data = json.loads(path.read_text())
+          data.setdefault("info", {})["productVersion"] = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          PY
+
+      - name: Install Wails CLI
+        if: runner.os != 'Linux'
+        shell: bash
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
       - name: Install Linux dependencies (amd64 + arm64 cross)
         if: runner.os == 'Linux'
@@ -93,16 +115,17 @@ jobs:
             gcc-aarch64-linux-gnu \
             libgtk-3-dev:arm64 libwebkit2gtk-4.1-dev:arm64
 
-      - name: Build frontend
-        working-directory: src/gui/frontend
-        run: |
-          npm ci
-          npm run build
-
       - name: Build GUI binaries (Linux)
         if: runner.os == 'Linux'
         run: |
           mkdir -p dist
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          cd src/gui/frontend
+          npm ci
+          npm run build
+          cd ../../
+
           cd src
           CGO_ENABLED=1 go build -tags desktop,production,webkit2_41 -ldflags "-s -w" \
             -o ../dist/env-sync-gui-linux-amd64 ./gui
@@ -110,32 +133,142 @@ jobs:
           PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig \
           CGO_ENABLED=1 GOARCH=arm64 go build -tags desktop,production,webkit2_41 -ldflags "-s -w" \
             -o ../dist/env-sync-gui-linux-arm64 ./gui
+          cd ..
 
-      - name: Build GUI binaries (macOS)
+          for arch in amd64 arm64; do
+            package_root="packaging/linux-${arch}"
+            payload_dir="${package_root}/payload"
+            deb_root="${package_root}/deb"
+
+            rm -rf "$package_root"
+            mkdir -p "$payload_dir" \
+              "$deb_root/DEBIAN" \
+              "$deb_root/opt/env-sync" \
+              "$deb_root/usr/bin" \
+              "$deb_root/usr/share/applications" \
+              "$deb_root/usr/share/icons/hicolor/512x512/apps"
+
+            cp "dist/env-sync-gui-linux-${arch}" "$payload_dir/env-sync-gui"
+            chmod 755 "$payload_dir/env-sync-gui"
+            cp "src/gui/build/appicon.png" "$payload_dir/env-sync-gui.png"
+
+            cat <<'EOF' | sed 's/^          //' > "$payload_dir/env-sync-gui.desktop"
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=env-sync
+          Comment=Distributed secrets synchronization for local networks
+          Exec=__ENV_SYNC_GUI_EXEC__
+          Icon=__ENV_SYNC_GUI_ICON__
+          Terminal=false
+          Categories=Utility;Development;
+          Keywords=env;sync;secrets;
+          StartupWMClass=env-sync-gui
+          EOF
+
+            cp "$payload_dir/env-sync-gui" "$deb_root/opt/env-sync/env-sync-gui"
+            ln -s /opt/env-sync/env-sync-gui "$deb_root/usr/bin/env-sync-gui"
+            cp "$payload_dir/env-sync-gui.png" "$deb_root/usr/share/icons/hicolor/512x512/apps/env-sync-gui.png"
+            sed \
+              -e 's#__ENV_SYNC_GUI_EXEC__#/opt/env-sync/env-sync-gui#' \
+              -e 's#__ENV_SYNC_GUI_ICON__#env-sync-gui#' \
+              "$payload_dir/env-sync-gui.desktop" > "$deb_root/usr/share/applications/env-sync-gui.desktop"
+
+            cat <<EOF | sed 's/^          //' > "$deb_root/DEBIAN/control"
+          Package: env-sync-gui
+          Version: ${VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: ${arch}
+          Maintainer: Arnav Gupta <dev@championswimmer.in>
+          Depends: libgtk-3-0, libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37
+          Description: env-sync desktop GUI
+           Distributed secrets synchronization for local networks.
+          EOF
+
+            cat <<'EOF' | sed 's/^          //' > "$deb_root/DEBIAN/postinst"
+          #!/bin/sh
+          set -e
+          if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+          fi
+          if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -q /usr/share/icons/hicolor >/dev/null 2>&1 || true
+          fi
+          EOF
+
+            cat <<'EOF' | sed 's/^          //' > "$deb_root/DEBIAN/postrm"
+          #!/bin/sh
+          set -e
+          if command -v update-desktop-database >/dev/null 2>&1; then
+            update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+          fi
+          if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -q /usr/share/icons/hicolor >/dev/null 2>&1 || true
+          fi
+          EOF
+
+            chmod 755 "$deb_root/DEBIAN/postinst" "$deb_root/DEBIAN/postrm"
+
+            tar -C "$payload_dir" -czf "dist/env-sync-gui-linux-${arch}.tar.gz" .
+            dpkg-deb --build "$deb_root" "dist/env-sync-gui-linux-${arch}.deb"
+          done
+
+      - name: Build GUI package (macOS)
         if: runner.os == 'macOS'
         run: |
           mkdir -p dist
-          cd src
-          CGO_ENABLED=1 CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
-          GOARCH=arm64 go build -tags desktop,production -ldflags "-s -w" \
-            -o ../dist/env-sync-gui-macos-arm64 ./gui
-          CGO_ENABLED=1 CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
-          GOARCH=amd64 go build -tags desktop,production -ldflags "-s -w" \
-            -o ../dist/env-sync-gui-macos-amd64 ./gui
+          cd src/gui
+          for arch in amd64 arm64; do
+            rm -rf build/bin
+            PATH="$HOME/go/bin:$PATH" \
+            CGO_ENABLED=1 \
+            CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
+            wails build -clean -pack -platform "darwin/${arch}"
 
-      - name: Build GUI binaries (Windows)
+            stage_dir="$(mktemp -d)"
+            cp -R build/bin/env-sync.app "$stage_dir/env-sync.app"
+            hdiutil create \
+              -volname "env-sync" \
+              -srcfolder "$stage_dir" \
+              -ov \
+              -format UDZO \
+              "../../dist/env-sync-gui-macos-${arch}.dmg"
+            rm -rf "$stage_dir"
+          done
+
+      - name: Install NSIS
         if: runner.os == 'Windows'
-        shell: bash
+        shell: powershell
+        run: choco install nsis --no-progress -y
+
+      - name: Build GUI packages (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
         run: |
-          mkdir -p dist
-          cd src
-          CGO_ENABLED=1 go build -tags desktop,production -ldflags "-s -w -H windowsgui" \
-            -o ../dist/env-sync-gui-windows-amd64.exe ./gui
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Set-Location src/gui
+          $env:PATH = "$env:USERPROFILE\go\bin;$env:PATH"
+          $env:CGO_ENABLED = "1"
+          wails build -clean -pack -nsis -platform windows/amd64
+
+          $portable = Get-ChildItem build/bin -Filter '*.exe' | Where-Object { $_.Name -notmatch 'installer|setup' } | Select-Object -First 1
+          if (-not $portable) {
+            throw "Portable GUI executable not found"
+          }
+
+          $installer = Get-ChildItem build/bin -Filter '*.exe' | Where-Object { $_.Name -match 'installer|setup' } | Select-Object -First 1
+          if (-not $installer) {
+            throw "Windows installer not found"
+          }
+
+          Copy-Item $installer.FullName ../../dist/env-sync-gui-windows-amd64-installer.exe
+          Compress-Archive -Path $portable.FullName -DestinationPath ../../dist/env-sync-gui-windows-amd64-portable.zip -Force
 
       - name: Upload GUI artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gui-${{ runner.os }}
+          name: ${{ matrix.artifact_name }}
           path: dist/env-sync-gui-*
 
   # ── Collect everything and publish the GitHub Release ──

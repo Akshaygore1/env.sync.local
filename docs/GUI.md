@@ -18,11 +18,11 @@ The GUI (`env-sync-gui`) is a standalone desktop application that operates on th
 ```bash
 # Build and install GUI only
 make build-gui
-sudo make install-gui
+sudo ./install.sh --gui-only
 
 # Build and install both CLI + GUI
 make build-all
-sudo make install-all
+sudo ./install.sh --all
 ```
 
 ### Using install.sh
@@ -37,6 +37,11 @@ sudo make install-all
 # Default (CLI only)
 ./install.sh
 ```
+
+- **macOS**: installs `env-sync.app` to `/Applications` or `~/Applications` with `--user`
+- **macOS releases**: ship separate Apple Silicon and Intel DMG files, each containing `env-sync.app`
+- **Linux**: installs the GUI payload under `/opt/env-sync` or `~/.local/lib/env-sync`, plus a desktop launcher and icon
+- **Windows**: use the release installer executable from GitHub Releases
 
 ### Prerequisites
 
