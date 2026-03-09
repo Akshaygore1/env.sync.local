@@ -8,6 +8,7 @@ const router = useRouter()
 const route = useRoute()
 const settings = useSettingsStore()
 const collapsed = ref(false)
+const isDark = ref(true)
 
 const navItems = [
   { path: '/', name: 'Dashboard', icon: '🏠' },
@@ -27,7 +28,19 @@ function navigate(path: string) {
   router.push(path)
 }
 
+function toggleTheme() {
+  isDark.value = !isDark.value
+  document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
+  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
+}
+
 onMounted(async () => {
+  // Load saved theme
+  const saved = localStorage.getItem('theme')
+  if (saved === 'light') {
+    isDark.value = false
+    document.documentElement.setAttribute('data-theme', 'light')
+  }
   await settings.fetchVersion()
   await settings.fetchMode()
 })
@@ -60,6 +73,9 @@ onMounted(async () => {
       </nav>
 
       <div class="sidebar-footer" v-if="!collapsed">
+        <button class="btn btn-ghost btn-sm" @click="toggleTheme" aria-label="Toggle theme">
+          {{ isDark ? '☀️ Light' : '🌙 Dark' }}
+        </button>
         <div class="mode-badge" v-if="settings.currentMode">
           <span class="badge badge-info">{{ settings.currentMode.current }}</span>
         </div>
