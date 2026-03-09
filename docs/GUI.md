@@ -16,6 +16,10 @@ The GUI (`env-sync-gui`) is a standalone desktop application that operates on th
 ### From Source
 
 ```bash
+# Ubuntu/Debian GUI prerequisites
+sudo apt-get update
+sudo apt-get install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+
 # Build and install GUI only
 make build-gui
 sudo ./install.sh --gui-only
@@ -46,9 +50,11 @@ sudo ./install.sh --all
 ### Prerequisites
 
 - **Go 1.24+** and **Node.js 18+** (for building)
-- **Linux**: `libwebkit2gtk-4.0-dev` and `libgtk-3-dev`
+- **Linux**: `pkg-config`, `libgtk-3-dev`, and `libwebkit2gtk-4.1-dev`
 - **macOS**: Xcode Command Line Tools (WebView is built-in)
 - **Windows**: WebView2 runtime (included in Windows 11, available for Windows 10)
+
+On Ubuntu/Debian, build the Linux GUI on a machine or runner that matches the target architecture. `libwebkit2gtk-4.1-dev` conflicts with `libwebkit2gtk-4.1-dev:arm64`, so do not install both into the same root filesystem unless you are maintaining a dedicated cross-compilation sysroot yourself.
 
 ## Development
 

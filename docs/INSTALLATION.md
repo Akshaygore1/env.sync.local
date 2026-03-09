@@ -89,6 +89,10 @@ cd env.sync.local
 # Build Go binary
 make build
 
+# Ubuntu/Debian GUI prerequisites (GUI builds only)
+sudo apt-get update
+sudo apt-get install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+
 # Run tests
 make test
 
@@ -114,6 +118,8 @@ sudo ./install.sh --gui-only
 # Install both CLI + GUI
 sudo ./install.sh --all
 ```
+
+For Linux GUI builds, use a machine or CI runner that matches the target architecture. Ubuntu's `libwebkit2gtk-4.1-dev` packages for `amd64` and `arm64` conflict with each other, so installing both on the same system is not a supported build path here.
 
 ## Platform-Specific Notes
 

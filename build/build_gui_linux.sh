@@ -6,22 +6,34 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
 SRC_DIR="$ROOT_DIR/src"
 VERSION="${GITHUB_REF_NAME#v}"
+TARGET_ARCH="${TARGET_ARCH:-$(dpkg --print-architecture)}"
+NATIVE_ARCH="$(dpkg --print-architecture)"
 
 mkdir -p "$DIST_DIR"
+
+case "$TARGET_ARCH" in
+  amd64|arm64)
+    ;;
+  *)
+    echo "Unsupported TARGET_ARCH for Linux GUI build: $TARGET_ARCH" >&2
+    exit 1
+    ;;
+esac
+
+if [[ "$TARGET_ARCH" != "$NATIVE_ARCH" ]]; then
+  echo "Linux GUI packaging requires a native $TARGET_ARCH runner, but this runner is $NATIVE_ARCH." >&2
+  exit 1
+fi
 
 cd "$SRC_DIR/gui/frontend"
 npm ci
 npm run build
 
 cd "$SRC_DIR"
-CGO_ENABLED=1 go build -tags desktop,production,webkit2_41 -ldflags "-s -w" \
-  -o "$DIST_DIR/env-sync-gui-linux-amd64" ./gui
-CC=aarch64-linux-gnu-gcc \
-PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig \
-CGO_ENABLED=1 GOARCH=arm64 go build -tags desktop,production,webkit2_41 -ldflags "-s -w" \
-  -o "$DIST_DIR/env-sync-gui-linux-arm64" ./gui
+CGO_ENABLED=1 GOARCH="$TARGET_ARCH" go build -tags desktop,production,webkit2_41 -ldflags "-s -w" \
+  -o "$DIST_DIR/env-sync-gui-linux-${TARGET_ARCH}" ./gui
 
-for arch in amd64 arm64; do
+for arch in "$TARGET_ARCH"; do
   package_root="$ROOT_DIR/packaging/linux-${arch}"
   payload_dir="${package_root}/payload"
   deb_root="${package_root}/deb"

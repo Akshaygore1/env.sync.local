@@ -201,6 +201,10 @@ cd env.sync.local
 # Build CLI
 make build
 
+# Ubuntu/Debian GUI prerequisites (GUI builds only)
+sudo apt-get update
+sudo apt-get install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
+
 # Build GUI (requires Node.js 18+)
 make build-gui
 

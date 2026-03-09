@@ -40,7 +40,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: gui-linux
+            artifact_name: gui-linux-amd64
+            gui_arch: amd64
+          - os: ubuntu-24.04-arm
+            artifact_name: gui-linux-arm64
+            gui_arch: arm64
           - os: macos-latest
             artifact_name: gui-macos
           - os: windows-latest
@@ -76,12 +80,12 @@ jobs:
       - name: Install Linux dependencies (amd64 + arm64 cross)
         if: runner.os == 'Linux'
         shell: bash
-        run: bash ./build/install_linux_gui_deps.sh
+        run: TARGET_ARCH=${{ matrix.gui_arch }} bash ./build/install_linux_gui_deps.sh
 
       - name: Build GUI binaries (Linux)
         if: runner.os == 'Linux'
         shell: bash
-        run: bash ./build/build_gui_linux.sh
+        run: TARGET_ARCH=${{ matrix.gui_arch }} bash ./build/build_gui_linux.sh
 
       - name: Build GUI package (macOS)
         if: runner.os == 'macOS'

@@ -2,22 +2,27 @@
 
 set -euo pipefail
 
-sudo dpkg --add-architecture arm64
+TARGET_ARCH="${TARGET_ARCH:-$(dpkg --print-architecture)}"
+NATIVE_ARCH="$(dpkg --print-architecture)"
 
-if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
-  sudo sed -i '/^Types:/a Architectures: amd64' /etc/apt/sources.list.d/ubuntu.sources
+case "$TARGET_ARCH" in
+  amd64|arm64)
+    ;;
+  *)
+    echo "Unsupported TARGET_ARCH for Linux GUI build: $TARGET_ARCH" >&2
+    exit 1
+    ;;
+esac
+
+if [[ "$TARGET_ARCH" != "$NATIVE_ARCH" ]]; then
+  echo "Linux GUI builds require native system packages for the target architecture." >&2
+  echo "Requested TARGET_ARCH=$TARGET_ARCH on a $NATIVE_ARCH runner." >&2
+  echo "Use a native $TARGET_ARCH runner instead of installing conflicting multiarch WebKitGTK dev packages." >&2
+  exit 1
 fi
-
-cat <<'SOURCES' | sudo tee /etc/apt/sources.list.d/ubuntu-arm64.sources > /dev/null
-Types: deb
-URIs: http://ports.ubuntu.com/ubuntu-ports/
-Suites: noble noble-updates
-Components: main restricted universe multiverse
-Architectures: arm64
-SOURCES
 
 sudo apt-get update
 sudo apt-get install -y \
-  libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config \
-  gcc-aarch64-linux-gnu \
-  libgtk-3-dev:arm64 libwebkit2gtk-4.1-dev:arm64
+  libgtk-3-dev \
+  libwebkit2gtk-4.1-dev \
+  pkg-config
