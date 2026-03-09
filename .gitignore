@@ -7,6 +7,11 @@ dist/
 ~/.secrets.env
 ~/.config/env-sync/
 
+# Frontend build artifacts
+src/frontend/node_modules/
+src/frontend/dist/
+src/frontend/wailsjs/
+
 # IDE
 .vscode/
 .idea/
