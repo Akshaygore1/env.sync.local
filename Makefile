@@ -15,7 +15,11 @@ build:
 build-gui:
 	@mkdir -p $(TARGET_DIR)
 	cd $(SRC_DIR)/gui/frontend && npm install && npm run build
-	cd $(SRC_DIR) && $(GO) build -o $(BIN_GUI) ./gui
+ifeq ($(shell uname -s),Darwin)
+	cd $(SRC_DIR) && CGO_LDFLAGS="-framework UniformTypeIdentifiers" $(GO) build -tags desktop,production -ldflags "-s -w" -o $(BIN_GUI) ./gui
+else
+	cd $(SRC_DIR) && $(GO) build -tags desktop,production -ldflags "-s -w" -o $(BIN_GUI) ./gui
+endif
 
 build-all: build build-gui
 

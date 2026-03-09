@@ -104,11 +104,11 @@ jobs:
         run: |
           mkdir -p dist
           cd src
-          CGO_ENABLED=1 go build -tags webkit2_41 -ldflags "-s -w" \
+          CGO_ENABLED=1 go build -tags desktop,production,webkit2_41 -ldflags "-s -w" \
             -o ../dist/env-sync-gui-linux-amd64 ./gui
           CC=aarch64-linux-gnu-gcc \
           PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig \
-          CGO_ENABLED=1 GOARCH=arm64 go build -tags webkit2_41 -ldflags "-s -w" \
+          CGO_ENABLED=1 GOARCH=arm64 go build -tags desktop,production,webkit2_41 -ldflags "-s -w" \
             -o ../dist/env-sync-gui-linux-arm64 ./gui
 
       - name: Build GUI binaries (macOS)
@@ -116,9 +116,11 @@ jobs:
         run: |
           mkdir -p dist
           cd src
-          CGO_ENABLED=1 GOARCH=arm64 go build -ldflags "-s -w" \
+          CGO_ENABLED=1 CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
+          GOARCH=arm64 go build -tags desktop,production -ldflags "-s -w" \
             -o ../dist/env-sync-gui-macos-arm64 ./gui
-          CGO_ENABLED=1 GOARCH=amd64 go build -ldflags "-s -w" \
+          CGO_ENABLED=1 CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
+          GOARCH=amd64 go build -tags desktop,production -ldflags "-s -w" \
             -o ../dist/env-sync-gui-macos-amd64 ./gui
 
       - name: Build GUI binaries (Windows)
@@ -127,7 +129,7 @@ jobs:
         run: |
           mkdir -p dist
           cd src
-          CGO_ENABLED=1 go build -ldflags "-s -w" \
+          CGO_ENABLED=1 go build -tags desktop,production -ldflags "-s -w -H windowsgui" \
             -o ../dist/env-sync-gui-windows-amd64.exe ./gui
 
       - name: Upload GUI artifacts
