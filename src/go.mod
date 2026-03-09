@@ -7,6 +7,7 @@ toolchain go1.24.12
 require (
 	filippo.io/age v1.2.1
 	github.com/kardianos/service v1.2.3
+	github.com/wailsapp/wails/v2 v2.11.0
 )
 
 require (
@@ -33,7 +34,6 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
-	github.com/wailsapp/wails/v2 v2.11.0 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
