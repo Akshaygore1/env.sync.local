@@ -43,8 +43,8 @@ sudo ./install.sh --all
 ```
 
 - **macOS**: installs `env-sync.app` to `/Applications` or `~/Applications` with `--user`
-- **macOS releases**: ship separate Apple Silicon and Intel DMG files, each containing `env-sync.app`
-- **Linux**: installs the GUI payload under `/opt/env-sync` or `~/.local/lib/env-sync`, plus a desktop launcher and icon
+- **macOS releases**: ship separate Apple Silicon and Intel GUI binaries and DMG files
+- **Linux releases**: ship separate `amd64`/`arm64` GUI binaries and `.deb` packages; install.sh installs the GUI payload under `/opt/env-sync` or `~/.local/lib/env-sync`, plus a desktop launcher and icon
 - **Windows**: use the release installer executable from GitHub Releases
 
 ### Prerequisites

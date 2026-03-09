@@ -17,6 +17,10 @@ for arch in amd64 arm64; do
   CGO_LDFLAGS="-framework UniformTypeIdentifiers" \
   wails build -clean -platform "darwin/${arch}"
 
+  install -m 755 \
+    "build/bin/env-sync.app/Contents/MacOS/env-sync-gui" \
+    "$DIST_DIR/env-sync-gui-macos-${arch}"
+
   stage_dir="$(mktemp -d)"
   cp -R build/bin/env-sync.app "$stage_dir/env-sync.app"
   hdiutil create \

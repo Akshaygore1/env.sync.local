@@ -109,6 +109,5 @@ EOF
 
   chmod 755 "$deb_root/DEBIAN/postinst" "$deb_root/DEBIAN/postrm"
 
-  tar -C "$payload_dir" -czf "$DIST_DIR/env-sync-gui-linux-${arch}.tar.gz" .
   dpkg-deb --build "$deb_root" "$DIST_DIR/env-sync-gui-linux-${arch}.deb"
 done
