@@ -1,0 +1,24 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "env-sync",
+  "build:dir": "build",
+  "frontend:dir": "frontend",
+  "outputfilename": "env-sync-gui",
+  "frontend:install": "npm ci",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "./frontend",
+  "nsisType": "multiple",
+  "info": {
+    "companyName": "championswimmer",
+    "productName": "env-sync",
+    "productVersion": "3.0.1",
+    "copyright": "Copyright (c) Arnav Gupta",
+    "comments": "Distributed secrets synchronization for local networks"
+  },
+  "author": {
+    "name": "Arnav Gupta",
+    "email": "dev@championswimmer.in"
+  }
+}

@@ -9,9 +9,9 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  # ── CLI: cross-compile all 6 targets from a single runner ──
+  build-cli:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,50 +23,133 @@ jobs:
         with:
           go-version: '1.24'
 
+      - name: Build CLI binaries for all platforms
+        shell: bash
+        run: bash ./build/build_cli.sh
+
+      - name: Upload CLI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-dist
+          path: dist/
+          if-no-files-found: ignore
+
+  # ── GUI: native build per OS (CGO required for WebView) ──
+  build-gui:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: gui-linux-amd64
+            gui_arch: amd64
+          - os: ubuntu-24.04-arm
+            artifact_name: gui-linux-arm64
+            gui_arch: arm64
+          - os: macos-latest
+            artifact_name: gui-macos
+          - os: windows-latest
+            artifact_name: gui-windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/gui/frontend/package-lock.json
+
+      - name: Set GUI metadata version
+        shell: bash
+        run: python ./build/set_gui_metadata_version.py
+
+      - name: Install Wails CLI
+        if: runner.os != 'Linux'
+        shell: bash
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
+
+      - name: Install Linux dependencies (amd64 + arm64 cross)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: TARGET_ARCH=${{ matrix.gui_arch }} bash ./build/install_linux_gui_deps.sh
+
+      - name: Build GUI binaries (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: TARGET_ARCH=${{ matrix.gui_arch }} bash ./build/build_gui_linux.sh
+
+      - name: Build GUI package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash ./build/build_gui_macos.sh
+
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./build/install_nsis_windows.ps1
+
+      - name: Build GUI packages (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./build/build_gui_windows.ps1
+
+      - name: Upload GUI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/env-sync-gui-*
+          if-no-files-found: ignore
+
+  # ── Collect everything and publish the GitHub Release ──
+  release:
+    if: always()
+    needs: [build-cli, build-gui]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Build binaries for all platforms
-        run: |
-          mkdir -p dist
-          cd src
+      - name: Download CLI artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-dist
+          path: dist/
 
-          # Windows amd64
-          GOOS=windows GOARCH=amd64 go build -o ../dist/env-sync-windows-amd64.exe -ldflags "-s -w" ./cmd/env-sync
+      - name: Download GUI artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gui-*
+          path: dist/
+          merge-multiple: true
 
-          # Windows ARM64
-          GOOS=windows GOARCH=arm64 go build -o ../dist/env-sync-windows-arm64.exe -ldflags "-s -w" ./cmd/env-sync
-
-          # macOS amd64
-          GOOS=darwin GOARCH=amd64 go build -o ../dist/env-sync-macos-amd64 -ldflags "-s -w" ./cmd/env-sync
-
-          # macOS ARM64
-          GOOS=darwin GOARCH=arm64 go build -o ../dist/env-sync-macos-arm64 -ldflags "-s -w" ./cmd/env-sync
-
-          # Linux ARM64
-          GOOS=linux GOARCH=arm64 go build -o ../dist/env-sync-linux-arm64 -ldflags "-s -w" ./cmd/env-sync
-
-          # Linux amd64
-          GOOS=linux GOARCH=amd64 go build -o ../dist/env-sync-linux-amd64 -ldflags "-s -w" ./cmd/env-sync
-
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum * > checksums.txt
-          cat checksums.txt
+      - name: Prepare release assets
+        id: prepare_release_assets
+        shell: bash
+        run: bash ./build/prepare_release_assets.sh
 
       - name: Create Release
+        if: steps.prepare_release_assets.outputs.has_artifacts == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/env-sync-windows-amd64.exe
-            dist/env-sync-windows-arm64.exe
-            dist/env-sync-macos-amd64
-            dist/env-sync-macos-arm64
-            dist/env-sync-linux-arm64
-            dist/env-sync-linux-amd64
-            dist/checksums.txt
+          files: dist/*
           draft: false
           prerelease: false
           generate_release_notes: true

@@ -10,7 +10,7 @@ import (
 type SyncMode string
 
 const (
-	Version              = "3.0.1"
+	Version              = "3.1.3"
 	DefaultPort          = "5739"
 	Service              = "_envsync._tcp"
 	DefaultInitTimestamp = "1970-01-01T00:00:00Z"
