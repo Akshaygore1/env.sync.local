@@ -28,10 +28,12 @@ jobs:
         run: bash ./build/build_cli.sh
 
       - name: Upload CLI artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cli-dist
           path: dist/
+          if-no-files-found: ignore
 
   # ── GUI: native build per OS (CGO required for WebView) ──
   build-gui:
@@ -94,8 +96,8 @@ jobs:
 
       - name: Install NSIS
         if: runner.os == 'Windows'
-        shell: powershell
-        run: choco install nsis --no-progress -y
+        shell: pwsh
+        run: ./build/install_nsis_windows.ps1
 
       - name: Build GUI packages (Windows)
         if: runner.os == 'Windows'
@@ -103,13 +105,16 @@ jobs:
         run: ./build/build_gui_windows.ps1
 
       - name: Upload GUI artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: dist/env-sync-gui-*
+          if-no-files-found: ignore
 
   # ── Collect everything and publish the GitHub Release ──
   release:
+    if: always()
     needs: [build-cli, build-gui]
     runs-on: ubuntu-latest
     steps:
@@ -121,23 +126,27 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Download CLI artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: cli-dist
           path: dist/
 
       - name: Download GUI artifacts
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: gui-*
           path: dist/
           merge-multiple: true
 
-      - name: Generate checksums
+      - name: Prepare release assets
+        id: prepare_release_assets
         shell: bash
-        run: bash ./build/generate_checksums.sh
+        run: bash ./build/prepare_release_assets.sh
 
       - name: Create Release
+        if: steps.prepare_release_assets.outputs.has_artifacts == 'true'
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
