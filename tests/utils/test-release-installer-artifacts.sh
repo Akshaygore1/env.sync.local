@@ -55,7 +55,7 @@ assert_contains "$INSTALL_SCRIPT" 'GUI_INSTALL_DIR="/opt/env-sync"' "Linux syste
 if cmp -s "$GUI_LOGO_SOURCE" "$GUI_APP_ICON"; then
     echo "✓ GUI app icon asset matches docs/logo.png"
 else
-    echo "✗ GUI app icon asset matches docs/logo.png"
+    echo "✗ GUI app icon asset does not match docs/logo.png"
     exit 1
 fi
 
