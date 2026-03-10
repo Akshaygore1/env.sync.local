@@ -84,12 +84,12 @@ jobs:
         shell: bash
         run: TARGET_ARCH=${{ matrix.gui_arch }} bash ./build/install_linux_gui_deps.sh
 
-      - name: Build GUI binaries (Linux)
+      - name: Build GUI artifacts (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: TARGET_ARCH=${{ matrix.gui_arch }} bash ./build/build_gui_linux.sh
 
-      - name: Build GUI package (macOS)
+      - name: Build GUI artifacts (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: bash ./build/build_gui_macos.sh
@@ -109,7 +109,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/env-sync-gui-*
+          path: |
+            dist/env-sync-gui-*
           if-no-files-found: ignore
 
   # ── Collect everything and publish the GitHub Release ──
