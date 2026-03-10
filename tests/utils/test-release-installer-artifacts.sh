@@ -46,6 +46,7 @@ assert_contains "$INSTALL_SCRIPT" 'download_artifact "env-sync-gui-linux-${PLATF
 assert_not_contains "$INSTALL_SCRIPT" 'download_artifact "env-sync-gui-linux-${PLATFORM_ARCH}.tar.gz"' "Remote installer no longer downloads Linux GUI tarballs"
 assert_contains "$INSTALL_SCRIPT" 'GUI_INSTALL_DIR="$HOME/Applications"' "macOS user GUI installs go to ~/Applications"
 assert_contains "$INSTALL_SCRIPT" 'GUI_INSTALL_DIR="/Applications"' "macOS system GUI installs go to /Applications"
+assert_contains "$INSTALL_SCRIPT" 'xattr -dr com.apple.quarantine "$GUI_INSTALL_TARGET" >/dev/null 2>&1 || true' "macOS GUI installer clears quarantine metadata from installed app bundles"
 assert_contains "$INSTALL_SCRIPT" 'GUI_INSTALL_DIR="$HOME/.local/lib/env-sync"' "Linux user GUI installs go to ~/.local/lib/env-sync"
 assert_contains "$INSTALL_SCRIPT" 'GUI_INSTALL_DIR="/opt/env-sync"' "Linux system GUI installs go to /opt/env-sync"
 
