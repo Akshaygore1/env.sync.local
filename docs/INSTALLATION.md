@@ -165,6 +165,8 @@ mDNS (Bonjour) is built-in, no additional dependencies needed.
 curl -fsSL https://envsync.arnav.tech/install.sh | sudo bash
 ```
 
+For web installs, `install.sh` automatically selects the correct CLI binary for your OS/architecture. If you include `--gui`, it likewise downloads the matching GUI package for your platform (`.deb` on Linux, `.dmg` on macOS).
+
 **Note**: On macOS, the service uses `launchd` instead of `systemd`.
 
 ### Windows WSL2
