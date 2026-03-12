@@ -589,6 +589,19 @@ footer {
 .download-assets .panel {
   margin: 0;
 }
+.download-guidance h3 {
+  margin-top: 0;
+}
+.post-install-tips {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.55rem;
+  color: var(--text);
+}
+.post-install-tips li {
+  line-height: 1.45;
+}
 .muted-note {
   color: var(--muted);
   font-size: 0.92rem;

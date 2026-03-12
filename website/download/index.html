@@ -48,6 +48,13 @@
     </div>
   </section>
 
+  <section class="panel download-guidance">
+    <h3>After download</h3>
+    <ul id="post-install-tips" class="post-install-tips">
+      <li>Pick an app type and OS to see install and first-run guidance.</li>
+    </ul>
+  </section>
+
   <section class="cta-banner">
     <h2>Need an older version?</h2>
     <p>Browse all published tags and assets on GitHub releases.</p>
@@ -227,6 +234,50 @@
     }
   }
 
+  function renderPostInstallGuidance() {
+    const tips = [];
+    const listElement = document.getElementById('post-install-tips');
+
+    if (!selectedType || !selectedOS) {
+      listElement.innerHTML = '<li>Pick an app type and OS to see install and first-run guidance.</li>';
+      return;
+    }
+
+    const installDocsMap = {
+      linux: '../installation/quickstart#linux',
+      macos: '../installation/quickstart#macos',
+      windows: '../installation/quickstart#windows'
+    };
+
+    if (selectedType === 'cli') {
+      tips.push('CLI binaries must be added to your PATH before you can run env-sync from any terminal.');
+      if (selectedOS === 'windows') {
+        tips.push('On Windows, place env-sync.exe in a stable folder and add that folder to your User PATH.');
+      } else {
+        tips.push('On Linux/macOS, move the binary to a directory already in PATH (for example /usr/local/bin) and run chmod +x env-sync if needed.');
+      }
+      tips.push('After PATH setup, verify with env-sync --version and then run env-sync setup.');
+    } else if (selectedType === 'gui') {
+      tips.push('For first-time setup guidance, open the installation docs linked below after installing.');
+      if (selectedOS === 'linux') {
+        tips.push('For Linux app integration, prefer the .deb asset when available. It installs app metadata so env-sync appears in your desktop app launcher.');
+        tips.push('If you use the raw Linux GUI binary instead, mark it executable and create a desktop launcher entry manually.');
+      }
+      if (selectedOS === 'windows') {
+        tips.push('If Windows SmartScreen warns on first launch, click “More info” and then “Run anyway” for this unsigned build.');
+      }
+    }
+
+    if (selectedOS === 'macos') {
+      tips.push('macOS may block unsigned binaries/apps with quarantine. Learn how to remove quarantine: <a href="https://chatgpt.com/?q=how+to+remove+quarantine+flag+on+macOS+for+an+app+or+binary" target="_blank" rel="noopener">open guide search</a>.');
+    }
+
+    tips.push('Need setup steps after install? Continue with <a href="../installation/quickstart">Quickstart</a>.');
+    tips.push(`Platform-specific docs: <a href="${installDocsMap[selectedOS]}">${OS_META[selectedOS]?.label || selectedOS} install instructions</a>.`);
+
+    listElement.innerHTML = tips.map((tip) => `<li>${tip}</li>`).join('');
+  }
+
   function renderAll() {
     if (!selectedType) {
       selectedType = Object.keys(assetIndex)[0] || '';
@@ -245,6 +296,7 @@
     renderOSOptions();
     renderArchOptions();
     renderAssets();
+    renderPostInstallGuidance();
   }
 
   async function loadLatestRelease() {
