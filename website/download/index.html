@@ -107,12 +107,12 @@
   let selectedArch = '';
 
   function classifyAsset(asset) {
-    const guiMatch = asset.name.match(/^env-sync-gui-(linux|macos|windows)-([a-z0-9_]+)(?:-(installer|portable))?(?:\.[a-z0-9.]+)?$/i);
+    const guiMatch = asset.name.match(/^env-sync-gui-(linux|macos|windows)-([a-z0-9_]+)(?:-(?:installer|portable))?(?:\.[a-z0-9.]+)?$/);
     if (guiMatch) {
       return { appType: 'gui', os: guiMatch[1], arch: guiMatch[2] };
     }
 
-    const cliMatch = asset.name.match(/^env-sync-(linux|macos|windows)-([a-z0-9_]+)(?:\.[a-z0-9.]+)?$/i);
+    const cliMatch = asset.name.match(/^env-sync-(linux|macos|windows)-([a-z0-9_]+)(?:\.[a-z0-9.]+)?$/);
     if (cliMatch) {
       return { appType: 'cli', os: cliMatch[1], arch: cliMatch[2] };
     }
@@ -126,12 +126,16 @@
       const info = classifyAsset(asset);
       if (!info) continue;
 
-      index[info.appType] ??= {};
-      index[info.appType][info.os] ??= {};
-      index[info.appType][info.os][info.arch] ??= [];
+      index[info.appType] = index[info.appType] || {};
+      index[info.appType][info.os] = index[info.appType][info.os] || {};
+      index[info.appType][info.os][info.arch] = index[info.appType][info.os][info.arch] || [];
       index[info.appType][info.os][info.arch].push(asset);
     }
     return index;
+  }
+
+  function formatFileSize(bytes) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
   function renderAppTypeOptions() {
@@ -215,7 +219,7 @@
       item.className = 'panel';
       item.innerHTML = `
         <h4 style="margin:0 0 0.35rem;">${asset.name}</h4>
-        <p class="muted-note" style="margin:0 0 0.7rem;">${(asset.size / (1024 * 1024)).toFixed(2)} MB</p>
+        <p class="muted-note" style="margin:0 0 0.7rem;">${formatFileSize(asset.size)}</p>
         <a class="btn btn-primary" href="${asset.browser_download_url}">
           <i class="fa-solid fa-download"></i> Download
         </a>
@@ -264,6 +268,7 @@
 
       renderAll();
     } catch (err) {
+      console.error('Failed to fetch latest release assets:', err);
       label.textContent = 'Unable to load latest release';
       document.getElementById('download-assets').innerHTML = `
         <p class="muted-note">Could not fetch release assets right now. Please use the releases page directly.</p>
