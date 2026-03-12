@@ -86,11 +86,11 @@
       </div>
 
       <section class="panel">
-        <h2>Mode comparison</h2>
+        <h2>Mode comparison at a glance</h2>
         <table>
           <thead>
             <tr>
-              <th>Feature</th>
+              <th>Dimension</th>
               <th>dev-plaintext-http</th>
               <th>trusted-owner-ssh</th>
               <th>secure-peer</th>
@@ -98,40 +98,47 @@
           </thead>
           <tbody>
             <tr>
-              <td><strong>Storage encryption</strong></td>
-              <td>Plaintext</td>
-              <td>Plaintext (optional AGE)</td>
-              <td>AGE encrypted (mandatory)</td>
+              <td data-label="Dimension"><strong>Storage</strong></td>
+              <td data-label="dev-plaintext-http">Plaintext</td>
+              <td data-label="trusted-owner-ssh">Plaintext (optional AGE)</td>
+              <td data-label="secure-peer">AGE encrypted (mandatory)</td>
             </tr>
             <tr>
-              <td><strong>Transport security</strong></td>
-              <td>HTTP (plaintext)</td>
-              <td>SCP / SSH</td>
-              <td>HTTPS + mTLS</td>
+              <td data-label="Dimension"><strong>Transport</strong></td>
+              <td data-label="dev-plaintext-http">
+                <i class="fa-solid fa-network-wired"></i> HTTP
+              </td>
+              <td data-label="trusted-owner-ssh">
+                <i class="fa-solid fa-terminal"></i> SCP / SSH
+              </td>
+              <td data-label="secure-peer">
+                <i class="fa-solid fa-shield-halved"></i> HTTPS + mTLS
+              </td>
             </tr>
             <tr>
-              <td><strong>Authentication</strong></td>
-              <td>None</td>
-              <td>SSH keys</td>
-              <td>Mutual TLS certificates</td>
+              <td data-label="Dimension"><strong>Onboarding</strong></td>
+              <td data-label="dev-plaintext-http">
+                Open — any peer on the network
+              </td>
+              <td data-label="trusted-owner-ssh">
+                Zero-touch if <i class="fa-solid fa-terminal"></i> SSH access
+                exists
+              </td>
+              <td data-label="secure-peer">Invitation + explicit approval</td>
             </tr>
             <tr>
-              <td><strong>Authorization</strong></td>
-              <td>Open to all peers</td>
-              <td>Implicit via SSH trust</td>
-              <td>Explicit approval required</td>
+              <td data-label="Dimension"><strong>Authorization</strong></td>
+              <td data-label="dev-plaintext-http">None</td>
+              <td data-label="trusted-owner-ssh">Implicit via SSH trust</td>
+              <td data-label="secure-peer">
+                Explicit approved / revoked states
+              </td>
             </tr>
             <tr>
-              <td><strong>Onboarding</strong></td>
-              <td>Automatic discovery</td>
-              <td>Zero-touch if SSH configured</td>
-              <td>Invitation-based</td>
-            </tr>
-            <tr>
-              <td><strong>Use case</strong></td>
-              <td>Local debugging only</td>
-              <td>Personal device fleet</td>
-              <td>Cross-team collaboration</td>
+              <td data-label="Dimension"><strong>Best for</strong></td>
+              <td data-label="dev-plaintext-http">Local debugging only</td>
+              <td data-label="trusted-owner-ssh">All your own machines</td>
+              <td data-label="secure-peer">Multiple owners sharing secrets</td>
             </tr>
           </tbody>
         </table>

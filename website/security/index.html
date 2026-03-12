@@ -1,269 +1,457 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Security architecture | env-sync</title>
-  <meta name="description" content="Security architecture of env-sync: trust boundaries, mTLS, AGE encryption, certificate pinning, signed membership events, and threat model." />
-  <link rel="canonical" href="https://envsync.arnav.tech/security" />
-  <meta property="og:title" content="Security architecture | env-sync" />
-  <meta property="og:description" content="Defense-in-depth security: mTLS, AGE encryption, certificate pinning, signed membership events, and threat model for peer-to-peer secrets sync." />
-  <meta property="og:type" content="article" />
-  <meta property="og:url" content="https://envsync.arnav.tech/security" />
-  <meta property="og:image" content="https://envsync.arnav.tech/assets/cover.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Security architecture | env-sync" />
-  <meta name="twitter:description" content="Defense-in-depth: mTLS, AGE encryption, certificate pinning, signed membership events for peer-to-peer secrets sync." />
-  <meta name="twitter:image" content="https://envsync.arnav.tech/assets/cover.png" />
-  <meta name="keywords" content="env-sync security, mTLS, AGE encryption, certificate pinning, threat model, peer-to-peer security, secrets encryption" />
-  <link rel="stylesheet" href="../styles.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css" />
-</head>
-<body>
-
-<header>
-  <div class="nav">
-    <a class="brand" href="../">env-sync</a>
-    <nav>
-      <ul>
-        <li class="dropdown">
-          <a href="../installation">Install</a>
-          <ul class="dropdown-menu">
-            <li><a href="../installation/quickstart">Quickstart</a></li>
-            <li><a href="../installation/trusted-peers">Trusted Peers Setup</a></li>
-            <li><a href="../installation/secure-peers">Secure Peers Setup</a></li>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Security architecture | env-sync</title>
+    <meta
+      name="description"
+      content="Security architecture of env-sync: trust boundaries, mTLS, AGE encryption, certificate pinning, signed membership events, and threat model."
+    />
+    <link rel="canonical" href="https://envsync.arnav.tech/security" />
+    <meta property="og:title" content="Security architecture | env-sync" />
+    <meta
+      property="og:description"
+      content="Defense-in-depth security: mTLS, AGE encryption, certificate pinning, signed membership events, and threat model for peer-to-peer secrets sync."
+    />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://envsync.arnav.tech/security" />
+    <meta
+      property="og:image"
+      content="https://envsync.arnav.tech/assets/cover.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Security architecture | env-sync" />
+    <meta
+      name="twitter:description"
+      content="Defense-in-depth: mTLS, AGE encryption, certificate pinning, signed membership events for peer-to-peer secrets sync."
+    />
+    <meta
+      name="twitter:image"
+      content="https://envsync.arnav.tech/assets/cover.png"
+    />
+    <meta
+      name="keywords"
+      content="env-sync security, mTLS, AGE encryption, certificate pinning, threat model, peer-to-peer security, secrets encryption"
+    />
+    <link rel="stylesheet" href="../styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="nav">
+        <a class="brand" href="../">env-sync</a>
+        <nav>
+          <ul>
+            <li class="dropdown">
+              <a href="../installation">Install</a>
+              <ul class="dropdown-menu">
+                <li><a href="../installation/quickstart">Quickstart</a></li>
+                <li>
+                  <a href="../installation/trusted-peers"
+                    >Trusted Peers Setup</a
+                  >
+                </li>
+                <li>
+                  <a href="../installation/secure-peers">Secure Peers Setup</a>
+                </li>
+              </ul>
+            </li>
+            <li><a href="../usage">Usage</a></li>
+            <li><a href="../modes">Modes</a></li>
+            <li><a href="../security">Security</a></li>
+            <li><a href="../comparisons">Comparisons</a></li>
           </ul>
-        </li>
-        <li><a href="../usage">Usage</a></li>
-        <li><a href="../modes">Modes</a></li>
-        <li><a href="../security">Security</a></li>
-        <li><a href="../comparisons">Comparisons</a></li>
-      </ul>
-    </nav>
-    <a class="github-link" href="https://github.com/championswimmer/env.sync.local">
-      <i class="fa-brands fa-github"></i> GitHub
-    </a>
-  </div>
-</header>
+        </nav>
+        <a
+          class="github-link"
+          href="https://github.com/championswimmer/env.sync.local"
+        >
+          <i class="fa-brands fa-github"></i> GitHub
+        </a>
+      </div>
+    </header>
 
-<main>
-  <div class="subpage-hero">
-    <h1>Security architecture</h1>
-    <p>env-sync uses defense-in-depth across three explicit security modes. No implicit trust — you choose the model that fits your threat profile.</p>
-  </div>
+    <main>
+      <div class="subpage-hero">
+        <h1>Security architecture</h1>
+        <p>
+          env-sync uses defense-in-depth across three explicit security modes.
+          No implicit trust — you choose the model that fits your threat
+          profile.
+        </p>
+      </div>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-layer-group"></i> Security baseline by mode</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Dimension</th>
-          <th>dev-plaintext-http</th>
-          <th>trusted-owner-ssh</th>
-          <th>secure-peer</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>Encryption at rest</strong></td>
-          <td>None</td>
-          <td>Plaintext default (optional AGE)</td>
-          <td>AGE encrypted (mandatory)</td>
-        </tr>
-        <tr>
-          <td><strong>Encryption in transit</strong></td>
-          <td>None</td>
-          <td><i class="fa-solid fa-terminal"></i> SSH encryption</td>
-          <td><i class="fa-solid fa-shield-halved"></i> HTTPS + mTLS (TLS 1.3)</td>
-        </tr>
-        <tr>
-          <td><strong>Peer authentication</strong></td>
-          <td>None</td>
-          <td><i class="fa-solid fa-terminal"></i> SSH keys</td>
-          <td><i class="fa-solid fa-shield-halved"></i> Mutual TLS certificates + approval</td>
-        </tr>
-        <tr>
-          <td><strong>Risk level</strong></td>
-          <td>Debug only — not for real secrets</td>
-          <td>Strong when all hosts are equally trusted</td>
-          <td>Strong for cross-owner boundaries</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
+      <section class="panel">
+        <h2>
+          <i class="fa-solid fa-layer-group"></i> Security baseline by mode
+        </h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>dev-plaintext-http</th>
+              <th>trusted-owner-ssh</th>
+              <th>secure-peer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Dimension">
+                <strong>Encryption at rest</strong>
+              </td>
+              <td data-label="dev-plaintext-http">None</td>
+              <td data-label="trusted-owner-ssh">
+                Plaintext default (optional AGE)
+              </td>
+              <td data-label="secure-peer">AGE encrypted (mandatory)</td>
+            </tr>
+            <tr>
+              <td data-label="Dimension">
+                <strong>Encryption in transit</strong>
+              </td>
+              <td data-label="dev-plaintext-http">None</td>
+              <td data-label="trusted-owner-ssh">
+                <i class="fa-solid fa-terminal"></i> SSH encryption
+              </td>
+              <td data-label="secure-peer">
+                <i class="fa-solid fa-shield-halved"></i> HTTPS + mTLS (TLS 1.3)
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Dimension">
+                <strong>Peer authentication</strong>
+              </td>
+              <td data-label="dev-plaintext-http">None</td>
+              <td data-label="trusted-owner-ssh">
+                <i class="fa-solid fa-terminal"></i> SSH keys
+              </td>
+              <td data-label="secure-peer">
+                <i class="fa-solid fa-shield-halved"></i> Mutual TLS
+                certificates + approval
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Dimension"><strong>Risk level</strong></td>
+              <td data-label="dev-plaintext-http">
+                Debug only — not for real secrets
+              </td>
+              <td data-label="trusted-owner-ssh">
+                Strong when all hosts are equally trusted
+              </td>
+              <td data-label="secure-peer">
+                Strong for cross-owner boundaries
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-shield-halved"></i> Secure-peer trust model</h2>
-    <div class="features">
-      <article class="card">
-        <div class="card-icon"><i class="fa-solid fa-ban"></i></div>
-        <h3>No global root CA</h3>
-        <p>Trust is deployment-local with pinned certificates, not dependent on external certificate authorities.</p>
-      </article>
-      <article class="card">
-        <div class="card-icon"><i class="fa-solid fa-address-book"></i></div>
-        <h3>Peer registry</h3>
-        <p>Tracks pending, approved, and revoked states for every peer in the network.</p>
-      </article>
-      <article class="card">
-        <div class="card-icon"><i class="fa-solid fa-signature"></i></div>
-        <h3>Signed membership events</h3>
-        <p>Approve/revoke actions are cryptographically signed and replicated across all peers.</p>
-      </article>
-      <article class="card">
-        <div class="card-icon"><i class="fa-solid fa-rotate-left"></i></div>
-        <h3>Replay protection</h3>
-        <p>Monotonic event IDs and timestamp validation prevent event replay attacks.</p>
-      </article>
-      <article class="card">
-        <div class="card-icon"><i class="fa-solid fa-wifi"></i></div>
-        <h3>Offline catch-up</h3>
-        <p>Peers that were offline during membership changes receive signed events on next sync.</p>
-      </article>
-    </div>
-  </section>
+      <section class="panel">
+        <h2>
+          <i class="fa-solid fa-shield-halved"></i> Secure-peer trust model
+        </h2>
+        <div class="features">
+          <article class="card">
+            <div class="card-icon"><i class="fa-solid fa-ban"></i></div>
+            <h3>No global root CA</h3>
+            <p>
+              Trust is deployment-local with pinned certificates, not dependent
+              on external certificate authorities.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon">
+              <i class="fa-solid fa-address-book"></i>
+            </div>
+            <h3>Peer registry</h3>
+            <p>
+              Tracks pending, approved, and revoked states for every peer in the
+              network.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon"><i class="fa-solid fa-signature"></i></div>
+            <h3>Signed membership events</h3>
+            <p>
+              Approve/revoke actions are cryptographically signed and replicated
+              across all peers.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon"><i class="fa-solid fa-rotate-left"></i></div>
+            <h3>Replay protection</h3>
+            <p>
+              Monotonic event IDs and timestamp validation prevent event replay
+              attacks.
+            </p>
+          </article>
+          <article class="card">
+            <div class="card-icon"><i class="fa-solid fa-wifi"></i></div>
+            <h3>Offline catch-up</h3>
+            <p>
+              Peers that were offline during membership changes receive signed
+              events on next sync.
+            </p>
+          </article>
+        </div>
+      </section>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-crosshairs"></i> Threat model</h2>
-    
-    <h3><i class="fa-solid fa-terminal"></i> trusted-owner-ssh</h3>
-    <div class="callout callout--info">
-      <i class="fa-solid fa-circle-info"></i>
-      <div>
-        <strong>Strength:</strong> Mature SSH transport security, operational simplicity, and wide ecosystem support.
-      </div>
-    </div>
-    <ul>
-      <li><strong>Trade-off:</strong> Broad trust — compromise of one peer can impact others. All peers have equivalent access.</li>
-      <li><strong>Mitigation:</strong> Enable optional AGE encryption for defense-in-depth. Rotate SSH keys regularly.</li>
-    </ul>
-    
-    <h3><i class="fa-solid fa-shield-halved"></i> secure-peer</h3>
-    <div class="callout callout--success">
-      <i class="fa-solid fa-check"></i>
-      <div>
-        <strong>Strength:</strong> Explicit authorization required. Mandatory encryption at rest. No shell access shared between peers.
-      </div>
-    </div>
-    <ul>
-      <li><strong>Strength:</strong> mTLS reduces blast radius compared to SSH trust mesh — peers authenticate without system-level access.</li>
-      <li><strong>Trade-off:</strong> Higher operational overhead — invitation/approval workflow and identity material management required.</li>
-      <li><strong>Mitigation:</strong> Regular peer audits. Revoke compromised peers immediately — revocation propagates via signed events.</li>
-    </ul>
-  </section>
+      <section class="panel">
+        <h2><i class="fa-solid fa-crosshairs"></i> Threat model</h2>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-key"></i> Cryptographic primitives</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Component</th>
-          <th>Algorithm</th>
-          <th>Purpose</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><i class="fa-solid fa-lock"></i> AGE encryption</td>
-          <td><code>X25519 + ChaCha20-Poly1305</code></td>
-          <td>At-rest encryption of secret values</td>
-        </tr>
-        <tr>
-          <td><i class="fa-solid fa-shield-halved"></i> mTLS certificates</td>
-          <td><code>TLS 1.3 (X.509)</code></td>
-          <td>In-transit encryption and peer authentication</td>
-        </tr>
-        <tr>
-          <td><i class="fa-solid fa-certificate"></i> Membership events</td>
-          <td><code>Signed with transport key</code></td>
-          <td>Cryptographic proof of peer approval/revocation</td>
-        </tr>
-        <tr>
-          <td><i class="fa-solid fa-terminal"></i> SSH transport</td>
-          <td><code>Ed25519 / RSA keys</code></td>
-          <td>Encrypted file transfer in trusted-owner mode</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
+        <h3><i class="fa-solid fa-terminal"></i> trusted-owner-ssh</h3>
+        <div class="callout callout--info">
+          <i class="fa-solid fa-circle-info"></i>
+          <div>
+            <strong>Strength:</strong> Mature SSH transport security,
+            operational simplicity, and wide ecosystem support.
+          </div>
+        </div>
+        <ul>
+          <li>
+            <strong>Trade-off:</strong> Broad trust — compromise of one peer can
+            impact others. All peers have equivalent access.
+          </li>
+          <li>
+            <strong>Mitigation:</strong> Enable optional AGE encryption for
+            defense-in-depth. Rotate SSH keys regularly.
+          </li>
+        </ul>
 
-  <section class="panel">
-    <h2><i class="fa-solid fa-clipboard-check"></i> Operational security checklist</h2>
-    <div class="checklist">
-      <div class="checklist-item">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>Keep file permissions strict — <code>600</code> for secrets files.</span>
-      </div>
-      <div class="checklist-item">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>Never log secret values — env-sync's logging respects this boundary.</span>
-      </div>
-      <div class="checklist-item">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>Audit approved peers regularly in secure-peer mode.</span>
-      </div>
-      <div class="checklist-item">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>Use backups and key lifecycle controls during membership changes.</span>
-      </div>
-      <div class="checklist-item">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>Enable AGE encryption in trusted-owner mode for defense-in-depth.</span>
-      </div>
-      <div class="checklist-item">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>Revoke and rotate keys for any compromised peer immediately.</span>
-      </div>
-    </div>
-  </section>
+        <h3><i class="fa-solid fa-shield-halved"></i> secure-peer</h3>
+        <div class="callout callout--success">
+          <i class="fa-solid fa-check"></i>
+          <div>
+            <strong>Strength:</strong> Explicit authorization required.
+            Mandatory encryption at rest. No shell access shared between peers.
+          </div>
+        </div>
+        <ul>
+          <li>
+            <strong>Strength:</strong> mTLS reduces blast radius compared to SSH
+            trust mesh — peers authenticate without system-level access.
+          </li>
+          <li>
+            <strong>Trade-off:</strong> Higher operational overhead —
+            invitation/approval workflow and identity material management
+            required.
+          </li>
+          <li>
+            <strong>Mitigation:</strong> Regular peer audits. Revoke compromised
+            peers immediately — revocation propagates via signed events.
+          </li>
+        </ul>
+      </section>
 
-  <section class="cta-banner">
-    <h2>See how env-sync compares to centralized tools</h2>
-    <p>Understand the trade-offs between peer-to-peer sync and cloud-hosted secrets managers.</p>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="../comparisons">View comparisons <i class="fa-solid fa-arrow-right"></i></a>
-      <a class="btn btn-secondary" href="../modes">Mode details</a>
-    </div>
-  </section>
-</main>
+      <section class="panel">
+        <h2><i class="fa-solid fa-key"></i> Cryptographic primitives</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Algorithm</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Component">
+                <i class="fa-solid fa-lock"></i> AGE encryption
+              </td>
+              <td data-label="Algorithm">X25519 + ChaCha20-Poly1305</td>
+              <td data-label="Purpose">At-rest encryption of secret values</td>
+            </tr>
+            <tr>
+              <td data-label="Component">
+                <i class="fa-solid fa-shield-halved"></i> mTLS certificates
+              </td>
+              <td data-label="Algorithm">TLS 1.3 (X.509)</td>
+              <td data-label="Purpose">
+                In-transit encryption and peer authentication
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Component">
+                <i class="fa-solid fa-certificate"></i> Membership events
+              </td>
+              <td data-label="Algorithm">Signed with transport key</td>
+              <td data-label="Purpose">
+                Cryptographic proof of peer approval/revocation
+              </td>
+            </tr>
+            <tr>
+              <td data-label="Component">
+                <i class="fa-solid fa-terminal"></i> SSH transport
+              </td>
+              <td data-label="Algorithm">Ed25519 / RSA keys</td>
+              <td data-label="Purpose">
+                Encrypted file transfer in trusted-owner mode
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
 
-<footer>
-  <div class="footer-inner">
-    <div>
-      <div class="footer-brand">env-sync</div>
-      <p>Distributed .env sync for local networks.</p>
-      <p>Open source <span class="separator">|</span> <a href="https://github.com/championswimmer/env.sync.local"><i class="fa-brands fa-github"></i> GitHub</a></p>
-    </div>
-    <div class="footer-links">
-      <div>
-        <h4>Install</h4>
-        <a href="../installation/quickstart">Quickstart</a>
-        <a href="../installation/trusted-peers">Trusted Peers</a>
-        <a href="../installation/secure-peers">Secure Peers</a>
-      </div>
-      <div>
-        <h4>Product</h4>
-        <a href="../usage">Usage</a>
-        <a href="../modes">Modes</a>
-        <a href="../security">Security</a>
-      </div>
-      <div>
-        <h4>Compare</h4>
-        <a href="../comparisons/vault-vs-envsync">vs Vault</a>
-        <a href="../comparisons/infisical-vs-envsync">vs Infisical</a>
-        <a href="../comparisons/doppler-vs-envsync">vs Doppler</a>
-      </div>
-    </div>
-  </div>
-</footer>
+      <section class="panel">
+        <h2>
+          <i class="fa-solid fa-clipboard-check"></i> Operational security
+          checklist
+        </h2>
+        <div class="checklist">
+          <div class="checklist-item">
+            <i class="fa-solid fa-circle-check"></i>
+            <span
+              >Keep file permissions strict — <code>600</code> for secrets
+              files.</span
+            >
+          </div>
+          <div class="checklist-item">
+            <i class="fa-solid fa-circle-check"></i>
+            <span
+              >Never log secret values — env-sync's logging respects this
+              boundary.</span
+            >
+          </div>
+          <div class="checklist-item">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Audit approved peers regularly in secure-peer mode.</span>
+          </div>
+          <div class="checklist-item">
+            <i class="fa-solid fa-circle-check"></i>
+            <span
+              >Use backups and key lifecycle controls during membership
+              changes.</span
+            >
+          </div>
+          <div class="checklist-item">
+            <i class="fa-solid fa-circle-check"></i>
+            <span
+              >Enable AGE encryption in trusted-owner mode for
+              defense-in-depth.</span
+            >
+          </div>
+          <div class="checklist-item">
+            <i class="fa-solid fa-circle-check"></i>
+            <span
+              >Revoke and rotate keys for any compromised peer
+              immediately.</span
+            >
+          </div>
+        </div>
+      </section>
 
-<script>
-    !function(t,e){var o,n,p,r;e.__SV||(window.posthog && window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="fi init Ci Mi ft Fi Ai Ri capture calculateEventProperties Ui register register_once register_for_session unregister unregister_for_session qi getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Hi ji createPersonProfile setInternalOrTestUser Bi Pi Vi opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Di debug bt zi getPageViewId captureTraceFeedback captureTraceMetric Si".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-    posthog.init('phc_BrfRxNDklIQEZmAK27UZ2PAdnMHjCBPKRB3fWtOsF9c', {
-        api_host: 'https://us.i.posthog.com',
-        defaults: '2026-01-30',
-        person_profiles: 'identified_only',
-    })
-</script>
-</body>
+      <section class="cta-banner">
+        <h2>See how env-sync compares to centralized tools</h2>
+        <p>
+          Understand the trade-offs between peer-to-peer sync and cloud-hosted
+          secrets managers.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="../comparisons"
+            >View comparisons <i class="fa-solid fa-arrow-right"></i
+          ></a>
+          <a class="btn btn-secondary" href="../modes">Mode details</a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-inner">
+        <div>
+          <div class="footer-brand">env-sync</div>
+          <p>Distributed .env sync for local networks.</p>
+          <p>
+            Open source <span class="separator">|</span>
+            <a href="https://github.com/championswimmer/env.sync.local"
+              ><i class="fa-brands fa-github"></i> GitHub</a
+            >
+          </p>
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Install</h4>
+            <a href="../installation/quickstart">Quickstart</a>
+            <a href="../installation/trusted-peers">Trusted Peers</a>
+            <a href="../installation/secure-peers">Secure Peers</a>
+          </div>
+          <div>
+            <h4>Product</h4>
+            <a href="../usage">Usage</a>
+            <a href="../modes">Modes</a>
+            <a href="../security">Security</a>
+          </div>
+          <div>
+            <h4>Compare</h4>
+            <a href="../comparisons/vault-vs-envsync">vs Vault</a>
+            <a href="../comparisons/infisical-vs-envsync">vs Infisical</a>
+            <a href="../comparisons/doppler-vs-envsync">vs Doppler</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+          (window.posthog && window.posthog.__loaded) ||
+          ((window.posthog = e),
+          (e._i = []),
+          (e.init = function (i, s, a) {
+            function g(t, e) {
+              var o = e.split(".");
+              (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                (t[e] = function () {
+                  t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+                }));
+            }
+            (((p = t.createElement("script")).type = "text/javascript"),
+              (p.crossOrigin = "anonymous"),
+              (p.async = !0),
+              (p.src =
+                s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                "/static/array.js"),
+              (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                p,
+                r,
+              ));
+            var u = e;
+            for (
+              void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                u.people = u.people || [],
+                u.toString = function (t) {
+                  var e = "posthog";
+                  return (
+                    "posthog" !== a && (e += "." + a),
+                    t || (e += " (stub)"),
+                    e
+                  );
+                },
+                u.people.toString = function () {
+                  return u.toString(1) + ".people (stub)";
+                },
+                o =
+                  "fi init Ci Mi ft Fi Ai Ri capture calculateEventProperties Ui register register_once register_for_session unregister unregister_for_session qi getFeatureFlag getFeatureFlagPayload getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey displaySurvey cancelPendingSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException startExceptionAutocapture stopExceptionAutocapture loadToolbar get_property getSessionProperty Hi ji createPersonProfile setInternalOrTestUser Bi Pi Vi opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing get_explicit_consent_status is_capturing clear_opt_in_out_capturing Di debug bt zi getPageViewId captureTraceFeedback captureTraceMetric Si".split(
+                    " ",
+                  ),
+                n = 0;
+              n < o.length;
+              n++
+            )
+              g(u, o[n]);
+            e._i.push([i, s, a]);
+          }),
+          (e.__SV = 1));
+      })(document, window.posthog || []);
+      posthog.init("phc_BrfRxNDklIQEZmAK27UZ2PAdnMHjCBPKRB3fWtOsF9c", {
+        api_host: "https://us.i.posthog.com",
+        defaults: "2026-01-30",
+        person_profiles: "identified_only",
+      });
+    </script>
+  </body>
 </html>
