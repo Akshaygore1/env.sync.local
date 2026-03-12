@@ -101,6 +101,7 @@
 </footer>
 <script>
   const RELEASE_DATA_URL = './latest-release.json';
+  const QUICKSTART_URL = '../installation/quickstart';
   const OS_META = {
     linux: { label: 'Linux', icon: 'fa-brands fa-linux' },
     macos: { label: 'macOS', icon: 'fa-brands fa-apple' },
@@ -234,7 +235,7 @@
     }
   }
 
-  function renderPostInstallGuidance() {
+  function renderPostInstallTips() {
     const tips = [];
     const listElement = document.getElementById('post-install-tips');
 
@@ -253,15 +254,17 @@
       tips.push('CLI binaries must be added to your PATH before you can run env-sync from any terminal.');
       if (selectedOS === 'windows') {
         tips.push('On Windows, place env-sync.exe in a stable folder and add that folder to your User PATH.');
+      } else if (selectedOS === 'linux') {
+        tips.push('On Linux, put the binary in a PATH directory such as <code>~/.local/bin</code> or <code>/usr/local/bin</code>, then run <code>chmod +x env-sync</code> before first use.');
       } else {
-        tips.push('On Linux/macOS, move the binary to a directory already in PATH (for example /usr/local/bin) and run chmod +x env-sync if needed.');
+        tips.push('On macOS, move the binary to /usr/local/bin (or another PATH directory) and run <code>chmod +x env-sync</code> before first use.');
       }
-      tips.push('After PATH setup, verify with env-sync --version and then run env-sync setup.');
+      tips.push('After PATH setup, verify with <code>env-sync --version</code> and then run <code>env-sync setup</code>.');
     } else if (selectedType === 'gui') {
       tips.push('For first-time setup guidance, open the installation docs linked below after installing.');
       if (selectedOS === 'linux') {
         tips.push('For Linux app integration, prefer the .deb asset when available. It installs app metadata so env-sync appears in your desktop app launcher.');
-        tips.push('If you use the raw Linux GUI binary instead, mark it executable and create a desktop launcher entry manually.');
+        tips.push('If you use the raw Linux GUI binary instead, run <code>chmod +x</code> on it and create a desktop launcher entry manually.');
       }
       if (selectedOS === 'windows') {
         tips.push('If Windows SmartScreen warns on first launch, click “More info” and then “Run anyway” for this unsigned build.');
@@ -269,11 +272,23 @@
     }
 
     if (selectedOS === 'macos') {
-      tips.push('macOS may block unsigned binaries/apps with quarantine. Learn how to remove quarantine: <a href="https://chatgpt.com/?q=how+to+remove+quarantine+flag+on+macOS+for+an+app+or+binary" target="_blank" rel="noopener">open guide search</a>.');
+      tips.push(
+        'macOS may block unsigned binaries/apps with quarantine. See '
+        + '<a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac" target="_blank" rel="noopener">Apple guidance</a> '
+        + 'and, if you want a walkthrough, '
+        + '<a href="https://chatgpt.com/?q=how+to+remove+quarantine+flag+on+macOS+for+an+app+or+binary" target="_blank" rel="noopener">ChatGPT walkthrough</a>.'
+      );
     }
 
-    tips.push('Need setup steps after install? Continue with <a href="../installation/quickstart">Quickstart</a>.');
-    tips.push(`Platform-specific docs: <a href="${installDocsMap[selectedOS]}">${OS_META[selectedOS]?.label || selectedOS} install instructions</a>.`);
+    const osLabel = OS_META[selectedOS]?.label || 'your platform';
+    const docsHref = installDocsMap[selectedOS] || QUICKSTART_URL;
+
+    if (docsHref !== QUICKSTART_URL) {
+      tips.push(`Need setup steps after install? Continue with <a href="${QUICKSTART_URL}">Quickstart</a>.`);
+      tips.push(`Platform-specific docs: <a href="${docsHref}">${osLabel} install instructions</a>.`);
+    } else {
+      tips.push(`Need setup steps after install? Continue with <a href="${QUICKSTART_URL}">Quickstart</a>.`);
+    }
 
     listElement.innerHTML = tips.map((tip) => `<li>${tip}</li>`).join('');
   }
@@ -296,7 +311,7 @@
     renderOSOptions();
     renderArchOptions();
     renderAssets();
-    renderPostInstallGuidance();
+    renderPostInstallTips();
   }
 
   async function loadLatestRelease() {
