@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Download env-sync | Latest CLI and GUI builds</title>
+  <meta name="description" content="Download the latest env-sync release assets from GitHub. Choose CLI or GUI builds by OS and architecture." />
+  <link rel="canonical" href="https://envsync.arnav.tech/download" />
+  <meta property="og:title" content="Download env-sync | Latest CLI and GUI builds" />
+  <meta property="og:description" content="Pick CLI or GUI, select your OS and architecture, and download the latest env-sync release directly from GitHub." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://envsync.arnav.tech/download" />
+  <meta property="og:image" content="https://envsync.arnav.tech/assets/cover.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Download env-sync | Latest CLI and GUI builds" />
+  <meta name="twitter:description" content="Choose CLI or GUI downloads for Linux, macOS, and Windows from the latest env-sync GitHub release." />
+  <meta name="twitter:image" content="https://envsync.arnav.tech/assets/cover.png" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css" />
+</head>
+<body>
+<header><div class="nav"><a class="brand" href="../">env-sync</a><nav><ul><li class="dropdown"><a href="../installation">Install</a><ul class="dropdown-menu"><li><a href="../installation/quickstart">Quickstart</a></li><li><a href="../installation/trusted-peers">Trusted Peers Setup</a></li><li><a href="../installation/secure-peers">Secure Peers Setup</a></li></ul></li><li><a href="../usage">Usage</a></li><li><a href="../modes">Modes</a></li><li><a href="../security">Security</a></li><li><a href="../comparisons">Comparisons</a></li></ul></nav><a class="github-link" href="https://github.com/championswimmer/env.sync.local"><i class="fa-brands fa-github"></i> GitHub</a></div></header>
+<main>
+  <div class="subpage-hero">
+    <h1>Download env-sync</h1>
+    <p>Pick your app type, operating system, and architecture. Downloads are sourced from the <strong>latest GitHub release</strong> of this repository.</p>
+  </div>
+
+  <section class="panel download-controls">
+    <div class="download-group">
+      <h3>1) Choose app type</h3>
+      <div id="app-type-options" class="option-grid"></div>
+    </div>
+    <div class="download-group">
+      <h3>2) Choose operating system</h3>
+      <div id="os-options" class="option-grid"></div>
+    </div>
+    <div class="download-group download-arch" id="arch-group">
+      <h3>3) Choose architecture</h3>
+      <select id="arch-select" aria-label="Choose architecture"></select>
+    </div>
+  </section>
+
+  <section class="panel download-results">
+    <h3 id="latest-release-label">Loading latest release…</h3>
+    <div id="download-assets" class="download-assets">
+      <p class="muted-note">Fetching release assets from GitHub.</p>
+    </div>
+  </section>
+
+  <section class="cta-banner">
+    <h2>Need an older version?</h2>
+    <p>Browse all published tags and assets on GitHub releases.</p>
+    <div class="cta-row" style="justify-content:center;">
+      <a class="btn btn-secondary" href="https://github.com/championswimmer/env.sync.local/releases"><i class="fa-brands fa-github"></i> View all releases</a>
+    </div>
+  </section>
+</main>
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">env-sync</div>
+      <p>Distributed .env sync for local networks.</p>
+      <p>Open source · <a href="https://github.com/championswimmer/env.sync.local"><i class="fa-brands fa-github"></i> GitHub</a></p>
+    </div>
+    <div class="footer-links">
+      <div>
+        <h4>Install</h4>
+        <a href="../installation/quickstart">Quickstart</a>
+        <a href="../installation/trusted-peers">Trusted Peers</a>
+        <a href="../installation/secure-peers">Secure Peers</a>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <a href="../usage">Usage</a>
+        <a href="../modes">Modes</a>
+        <a href="../security">Security</a>
+      </div>
+      <div>
+        <h4>Compare</h4>
+        <a href="../comparisons/vault-vs-envsync">vs Vault</a>
+        <a href="../comparisons/infisical-vs-envsync">vs Infisical</a>
+        <a href="../comparisons/doppler-vs-envsync">vs Doppler</a>
+        <a href="../comparisons/dotenvx-vs-envsync">vs dotenvx</a>
+        <a href="../comparisons/sops-vs-envsync">vs SOPS</a>
+      </div>
+      <div>
+        <h4>Resources</h4>
+        <a href="https://github.com/championswimmer/env.sync.local"><i class="fa-brands fa-github"></i> Source code</a>
+        <a href="https://github.com/championswimmer/env.sync.local/releases"><i class="fa-brands fa-github"></i> Releases</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+  const REPO_OWNER = 'championswimmer';
+  const REPO_NAME = 'env.sync.local';
+  const OS_META = {
+    linux: { label: 'Linux', icon: 'fa-brands fa-linux' },
+    macos: { label: 'macOS', icon: 'fa-brands fa-apple' },
+    windows: { label: 'Windows', icon: 'fa-brands fa-windows' }
+  };
+
+  let assetIndex = {};
+  let selectedType = '';
+  let selectedOS = '';
+  let selectedArch = '';
+
+  function classifyAsset(asset) {
+    const guiMatch = asset.name.match(/^env-sync-gui-(linux|macos|windows)-([a-z0-9_]+)(?:-(installer|portable))?(?:\.[a-z0-9.]+)?$/i);
+    if (guiMatch) {
+      return { appType: 'gui', os: guiMatch[1], arch: guiMatch[2] };
+    }
+
+    const cliMatch = asset.name.match(/^env-sync-(linux|macos|windows)-([a-z0-9_]+)(?:\.[a-z0-9.]+)?$/i);
+    if (cliMatch) {
+      return { appType: 'cli', os: cliMatch[1], arch: cliMatch[2] };
+    }
+
+    return null;
+  }
+
+  function buildAssetIndex(assets) {
+    const index = {};
+    for (const asset of assets) {
+      const info = classifyAsset(asset);
+      if (!info) continue;
+
+      index[info.appType] ??= {};
+      index[info.appType][info.os] ??= {};
+      index[info.appType][info.os][info.arch] ??= [];
+      index[info.appType][info.os][info.arch].push(asset);
+    }
+    return index;
+  }
+
+  function renderAppTypeOptions() {
+    const container = document.getElementById('app-type-options');
+    const types = Object.keys(assetIndex);
+    container.innerHTML = '';
+
+    for (const type of types) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `option-btn${type === selectedType ? ' active' : ''}`;
+      button.textContent = type.toUpperCase();
+      button.addEventListener('click', () => {
+        selectedType = type;
+        const osList = Object.keys(assetIndex[selectedType] || {});
+        selectedOS = osList[0] || '';
+        renderAll();
+      });
+      container.appendChild(button);
+    }
+  }
+
+  function renderOSOptions() {
+    const container = document.getElementById('os-options');
+    const osList = Object.keys(assetIndex[selectedType] || {});
+    container.innerHTML = '';
+
+    for (const os of osList) {
+      const meta = OS_META[os] || { label: os, icon: 'fa-solid fa-desktop' };
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `option-btn${os === selectedOS ? ' active' : ''}`;
+      button.innerHTML = `<i class="${meta.icon}"></i> ${meta.label}`;
+      button.addEventListener('click', () => {
+        selectedOS = os;
+        renderAll();
+      });
+      container.appendChild(button);
+    }
+  }
+
+  function renderArchOptions() {
+    const archGroup = document.getElementById('arch-group');
+    const select = document.getElementById('arch-select');
+    const archs = Object.keys(assetIndex[selectedType]?.[selectedOS] || {});
+    select.innerHTML = '';
+
+    if (archs.length <= 1) {
+      selectedArch = archs[0] || '';
+      archGroup.style.display = 'none';
+      return;
+    }
+
+    archGroup.style.display = '';
+    for (const arch of archs) {
+      const option = document.createElement('option');
+      option.value = arch;
+      option.textContent = arch;
+      if (!selectedArch) selectedArch = arch;
+      option.selected = arch === selectedArch;
+      select.appendChild(option);
+    }
+
+    select.onchange = () => {
+      selectedArch = select.value;
+      renderAssets();
+    };
+  }
+
+  function renderAssets() {
+    const assetsContainer = document.getElementById('download-assets');
+    const list = assetIndex[selectedType]?.[selectedOS]?.[selectedArch] || [];
+    if (!list.length) {
+      assetsContainer.innerHTML = '<p class="muted-note">No assets found for this combination in the latest release.</p>';
+      return;
+    }
+
+    assetsContainer.innerHTML = '';
+    for (const asset of list) {
+      const item = document.createElement('article');
+      item.className = 'panel';
+      item.innerHTML = `
+        <h4 style="margin:0 0 0.35rem;">${asset.name}</h4>
+        <p class="muted-note" style="margin:0 0 0.7rem;">${(asset.size / (1024 * 1024)).toFixed(2)} MB</p>
+        <a class="btn btn-primary" href="${asset.browser_download_url}">
+          <i class="fa-solid fa-download"></i> Download
+        </a>
+      `;
+      assetsContainer.appendChild(item);
+    }
+  }
+
+  function renderAll() {
+    if (!selectedType) {
+      selectedType = Object.keys(assetIndex)[0] || '';
+    }
+    const osList = Object.keys(assetIndex[selectedType] || {});
+    if (!osList.includes(selectedOS)) {
+      selectedOS = osList[0] || '';
+    }
+
+    const archs = Object.keys(assetIndex[selectedType]?.[selectedOS] || {});
+    if (!archs.includes(selectedArch)) {
+      selectedArch = archs[0] || '';
+    }
+
+    renderAppTypeOptions();
+    renderOSOptions();
+    renderArchOptions();
+    renderAssets();
+  }
+
+  async function loadLatestRelease() {
+    const label = document.getElementById('latest-release-label');
+    try {
+      const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`, {
+        headers: { Accept: 'application/vnd.github+json' }
+      });
+      if (!response.ok) {
+        throw new Error(`GitHub API returned ${response.status}`);
+      }
+      const release = await response.json();
+      assetIndex = buildAssetIndex(release.assets || []);
+      label.textContent = `Latest release: ${release.tag_name}`;
+
+      if (!Object.keys(assetIndex).length) {
+        document.getElementById('download-assets').innerHTML = '<p class="muted-note">No downloadable assets found in the latest release.</p>';
+        return;
+      }
+
+      renderAll();
+    } catch (err) {
+      label.textContent = 'Unable to load latest release';
+      document.getElementById('download-assets').innerHTML = `
+        <p class="muted-note">Could not fetch release assets right now. Please use the releases page directly.</p>
+        <p><a class="btn btn-secondary" href="https://github.com/championswimmer/env.sync.local/releases"><i class="fa-brands fa-github"></i> Open releases</a></p>
+      `;
+    }
+  }
+
+  loadLatestRelease();
+</script>
+</body>
+</html>

@@ -77,18 +77,16 @@
         <a
           class="github-link"
           href="https://github.com/championswimmer/env.sync.local"
+          ><i class="fa-brands fa-github"></i> GitHub</a
         >
-          <i class="fa-brands fa-github"></i> GitHub
-        </a>
       </div>
     </header>
-
     <main>
-      <!-- Hero Section -->
+      <!-- Hero -->
       <section class="hero">
-        <div class="hero-content">
+        <div>
           <h1>
-            Stop copying <span class="highlight">.env</span> files between
+            Stop copying <span class="highlight">.env</span> files<br />between
             machines
           </h1>
           <p>
@@ -96,68 +94,40 @@
             network — automatically. No central server, no cloud dependency, no
             manual copy-paste.
           </p>
-
-          <div class="badge-row">
+          <p>
             <span class="badge"
               ><i class="fa-brands fa-osi"></i> Open Source</span
             >
-            <span class="badge badge--teal"
-              ><i class="fa-solid fa-satellite-dish"></i> mDNS Discovery</span
+            <span class="badge"
+              ><i class="fa-solid fa-satellite-dish"></i> mDNS
+              Auto-Discovery</span
             >
             <span class="badge"
-              ><i class="fa-solid fa-terminal"></i> SSH Transport</span
+              ><i class="fa-solid fa-terminal"></i> SSH &amp;
+              <i class="fa-solid fa-shield-halved"></i> mTLS Transport</span
             >
-            <span class="badge badge--teal"
-              ><i class="fa-solid fa-shield-halved"></i> mTLS + AGE</span
+            <span class="badge"
+              ><i class="fa-solid fa-lock"></i> AGE Encryption</span
             >
-          </div>
-
+          </p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="./installation">
-              <i class="fa-solid fa-bolt"></i> Get Started
-            </a>
+            <a class="btn btn-primary" href="./download"
+              ><i class="fa-solid fa-download"></i> Download now</a
+            >
+            <a class="btn btn-secondary" href="./installation"
+              >Get started — it's free</a
+            >
             <a
               class="btn btn-secondary"
               href="https://github.com/championswimmer/env.sync.local"
+              ><i class="fa-brands fa-github"></i> View on GitHub</a
             >
-              <i class="fa-brands fa-github"></i> View Source
-            </a>
           </div>
         </div>
-
-        <div class="hero-visual">
-          <!-- Network diagram showing peer-to-peer topology -->
-          <div class="network-diagram">
-            <div class="node node--center">
-              <i class="fa-solid fa-rotate"></i>
-              <span>sync</span>
-            </div>
-            <div class="node">
-              <i class="fa-solid fa-laptop"></i>
-              <span>laptop</span>
-            </div>
-            <div class="node">
-              <i class="fa-solid fa-desktop"></i>
-              <span>desktop</span>
-            </div>
-            <div class="node">
-              <i class="fa-solid fa-server"></i>
-              <span>server</span>
-            </div>
-            <div class="node">
-              <i class="fa-solid fa-microchip"></i>
-              <span>nuc</span>
-            </div>
-            <div class="node">
-              <i class="fa-solid fa-cloud"></i>
-              <span>vm</span>
-            </div>
-            <div class="node">
-              <i class="fa-solid fa-hard-drive"></i>
-              <span>nas</span>
-            </div>
-          </div>
-        </div>
+        <img
+          src="./assets/cover.png"
+          alt="env-sync peer-to-peer secrets synchronization across local machines"
+        />
       </section>
 
       <!-- Terminal Install Block -->

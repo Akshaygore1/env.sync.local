@@ -1291,76 +1291,85 @@ footer {
   -webkit-overflow-scrolling: touch;
 }
 
-/* --- Step with side number (alternate style) --- */
-.step .step-number {
-  position: absolute;
-  top: calc(-1 * var(--space-md));
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #fff;
-  background: var(--accent);
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-sm);
-  min-width: 32px;
-  text-align: center;
+/* Download page */
+.download-controls {
+  display: grid;
+  gap: 1rem;
 }
-
-.step .step-content {
-  text-align: center;
+.download-group h3 {
+  margin: 0 0 0.6rem;
 }
-
-.step .step-content h4 {
-  margin: 0 0 var(--space-xs);
-  font-size: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
 }
-
-.step .step-content h4 i {
-  color: var(--accent);
+.option-btn {
+  border: 1px solid var(--border);
+  background: rgba(34, 48, 73, 0.45);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    transform 0.15s,
+    background 0.2s;
 }
-
-.step .step-content p {
-  margin: 0;
-  font-size: 0.9rem;
+.option-btn:hover {
+  border-color: rgba(151, 201, 255, 0.4);
+  transform: translateY(-1px);
 }
-
-/* When using step-number, hide the ::before counter */
-.step:has(.step-number)::before {
-  display: none;
+.option-btn.active {
+  color: #061120;
+  border-color: transparent;
+  background: linear-gradient(135deg, #80d8ff 0%, #97c9ff 45%, #a8b6ff 100%);
 }
-
-/* --- Utility Classes --- */
-.text-center {
-  text-align: center;
+.option-btn i {
+  margin-right: 0.45rem;
 }
-.text-left {
-  text-align: left;
+.download-arch {
+  max-width: 320px;
 }
-.text-right {
-  text-align: right;
+.download-arch select {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: rgba(17, 18, 35, 0.9);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
 }
-.mt-0 {
+.download-results h3 {
   margin-top: 0;
 }
-.mb-0 {
-  margin-bottom: 0;
+.download-assets {
+  display: grid;
+  gap: 0.75rem;
 }
-.mt-lg {
-  margin-top: var(--space-lg);
+.download-assets .panel {
+  margin: 0;
 }
-.mb-lg {
-  margin-bottom: var(--space-lg);
+.muted-note {
+  color: var(--muted);
+  font-size: 0.92rem;
 }
-.max-w-narrow {
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
+
+@media (max-width: 880px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+  .hero h1 {
+    font-size: 2rem;
+  }
+  .hero img {
+    max-width: 100%;
+  }
+  .footer-inner {
+    flex-direction: column;
+  }
 
   /* Make panels containing tables scrollable */
   .panel:has(table) {
