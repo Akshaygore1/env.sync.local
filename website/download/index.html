@@ -107,6 +107,8 @@
     macos: { label: 'macOS', icon: 'fa-brands fa-apple' },
     windows: { label: 'Windows', icon: 'fa-brands fa-windows' }
   };
+  const TIP_OS_CLASS = { linux: 'os-lin', macos: 'os-mac', windows: 'os-win' };
+  const TIP_MODE_CLASS = { cli: 'mode-cli', gui: 'mode-gui' };
 
   let assetIndex = {};
   let selectedType = '';
@@ -209,6 +211,7 @@
     select.onchange = () => {
       selectedArch = select.value;
       renderAssets();
+      renderPostInstallTips();
     };
   }
 
@@ -236,7 +239,6 @@
   }
 
   function renderPostInstallTips() {
-    const tips = [];
     const listElement = document.getElementById('post-install-tips');
 
     if (!selectedType || !selectedOS) {
@@ -250,47 +252,121 @@
       windows: '../installation/quickstart#windows'
     };
 
-    if (selectedType === 'cli') {
-      tips.push('CLI binaries must be added to your PATH before you can run env-sync from any terminal.');
-      if (selectedOS === 'windows') {
-        tips.push('On Windows, place env-sync.exe in a stable folder and add that folder to your User PATH.');
-      } else if (selectedOS === 'linux') {
-        tips.push('On Linux, put the binary in a PATH directory such as <code>~/.local/bin</code> or <code>/usr/local/bin</code>, then run <code>chmod +x env-sync</code> before first use.');
-      } else {
-        tips.push('On macOS, move the binary to /usr/local/bin (or another PATH directory) and run <code>chmod +x env-sync</code> before first use.');
+    const tips = [
+      {
+        html: 'CLI binaries must be added to your PATH before you can run env-sync from any terminal.',
+        modes: ['cli']
+      },
+      {
+        html: 'On Windows, place env-sync.exe in a stable folder and add that folder to your User PATH.',
+        modes: ['cli'],
+        oses: ['windows']
+      },
+      {
+        html: 'On Linux, put the binary in a PATH directory such as <code>~/.local/bin</code> or <code>/usr/local/bin</code>, then run <code>chmod +x env-sync</code> before first use.',
+        modes: ['cli'],
+        oses: ['linux']
+      },
+      {
+        html: 'On macOS, move the binary to /usr/local/bin (or another PATH directory) and run <code>chmod +x env-sync</code> before first use.',
+        modes: ['cli'],
+        oses: ['macos']
+      },
+      {
+        html: 'After PATH setup, verify with <code>env-sync --version</code> and then run <code>env-sync setup</code>.',
+        modes: ['cli']
+      },
+      {
+        html: 'For first-time setup guidance, open the installation docs linked below after installing.',
+        modes: ['gui']
+      },
+      {
+        html: 'For Linux app integration, prefer the .deb asset when available. It installs app metadata so env-sync appears in your desktop app launcher.',
+        modes: ['gui'],
+        oses: ['linux']
+      },
+      {
+        html: 'If you use the raw Linux GUI binary instead, run <code>chmod +x</code> on it and create a desktop launcher entry manually.',
+        modes: ['gui'],
+        oses: ['linux']
+      },
+      {
+        html: 'If Windows SmartScreen warns on first launch, click “More info” and then “Run anyway” for this unsigned build.',
+        modes: ['gui'],
+        oses: ['windows']
+      },
+      {
+        html: 'macOS may block unsigned binaries/apps with quarantine. See <a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac" target="_blank" rel="noopener">Apple guidance</a> and, if you want a walkthrough, <a href="https://chatgpt.com/?q=how+to+remove+quarantine+flag+on+macOS+for+an+app+or+binary" target="_blank" rel="noopener">ChatGPT walkthrough</a>.',
+        oses: ['macos']
+      },
+      {
+        html: 'Pick the <code>amd64</code> build for Intel/AMD x86_64 machines.',
+        arches: ['amd64']
+      },
+      {
+        html: 'Pick the <code>arm64</code> build for Apple Silicon and ARM64 Linux devices.',
+        arches: ['arm64']
+      },
+      {
+        html: 'Need setup steps after install? Continue with <a href="../installation/quickstart">Quickstart</a>.'
       }
-      tips.push('After PATH setup, verify with <code>env-sync --version</code> and then run <code>env-sync setup</code>.');
-    } else if (selectedType === 'gui') {
-      tips.push('For first-time setup guidance, open the installation docs linked below after installing.');
-      if (selectedOS === 'linux') {
-        tips.push('For Linux app integration, prefer the .deb asset when available. It installs app metadata so env-sync appears in your desktop app launcher.');
-        tips.push('If you use the raw Linux GUI binary instead, run <code>chmod +x</code> on it and create a desktop launcher entry manually.');
-      }
-      if (selectedOS === 'windows') {
-        tips.push('If Windows SmartScreen warns on first launch, click “More info” and then “Run anyway” for this unsigned build.');
-      }
-    }
-
-    if (selectedOS === 'macos') {
-      tips.push(
-        'macOS may block unsigned binaries/apps with quarantine. See '
-        + '<a href="https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unidentified-developer-mh40616/mac" target="_blank" rel="noopener">Apple guidance</a> '
-        + 'and, if you want a walkthrough, '
-        + '<a href="https://chatgpt.com/?q=how+to+remove+quarantine+flag+on+macOS+for+an+app+or+binary" target="_blank" rel="noopener">ChatGPT walkthrough</a>.'
-      );
-    }
+    ];
 
     const osLabel = OS_META[selectedOS]?.label || 'your platform';
     const docsHref = installDocsMap[selectedOS] || QUICKSTART_URL;
 
     if (docsHref !== QUICKSTART_URL) {
-      tips.push(`Need setup steps after install? Continue with <a href="${QUICKSTART_URL}">Quickstart</a>.`);
-      tips.push(`Platform-specific docs: <a href="${docsHref}">${osLabel} install instructions</a>.`);
-    } else {
-      tips.push(`Need setup steps after install? Continue with <a href="${QUICKSTART_URL}">Quickstart</a>.`);
+      tips.push({
+        html: `Platform-specific docs: <a href="${docsHref}">${osLabel} install instructions</a>.`,
+        oses: [selectedOS]
+      });
     }
 
-    listElement.innerHTML = tips.map((tip) => `<li>${tip}</li>`).join('');
+    function sanitizeTagValue(value) {
+      return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    }
+
+    function tagClass(prefix, value, map) {
+      const mapped = map?.[value];
+      if (mapped) return mapped;
+      return `${prefix}-${sanitizeTagValue(value)}`;
+    }
+
+    function matchesTip(tip) {
+      const modeMatch = !tip.modes || tip.modes.includes(selectedType);
+      const osMatch = !tip.oses || tip.oses.includes(selectedOS);
+      const archMatch = !tip.arches || tip.arches.includes(selectedArch);
+      return modeMatch && osMatch && archMatch;
+    }
+
+    listElement.innerHTML = '';
+    let visibleCount = 0;
+
+    for (const tip of tips) {
+      const li = document.createElement('li');
+      li.innerHTML = tip.html;
+
+      for (const mode of (tip.modes || [])) {
+        li.classList.add(tagClass('mode', mode, TIP_MODE_CLASS));
+      }
+      for (const os of (tip.oses || [])) {
+        li.classList.add(tagClass('os', os, TIP_OS_CLASS));
+      }
+      for (const arch of (tip.arches || [])) {
+        li.classList.add(tagClass('arch', arch));
+      }
+
+      if (!matchesTip(tip)) {
+        li.classList.add('tip-hidden');
+      } else {
+        visibleCount += 1;
+      }
+      listElement.appendChild(li);
+    }
+
+    if (visibleCount === 0) {
+      listElement.innerHTML = '<li>No specific tips for this selection. Continue with the Quickstart guide.</li>';
+    }
   }
 
   function renderAll() {
