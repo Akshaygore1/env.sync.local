@@ -44,7 +44,7 @@
   <section class="panel download-results">
     <h3 id="latest-release-label">Loading latest release…</h3>
     <div id="download-assets" class="download-assets">
-      <p class="muted-note">Fetching release assets from GitHub.</p>
+      <p class="muted-note">Loading release assets.</p>
     </div>
   </section>
 
@@ -93,8 +93,7 @@
   </div>
 </footer>
 <script>
-  const REPO_OWNER = 'championswimmer';
-  const REPO_NAME = 'env.sync.local';
+  const RELEASE_DATA_URL = './latest-release.json';
   const OS_META = {
     linux: { label: 'Linux', icon: 'fa-brands fa-linux' },
     macos: { label: 'macOS', icon: 'fa-brands fa-apple' },
@@ -251,15 +250,13 @@
   async function loadLatestRelease() {
     const label = document.getElementById('latest-release-label');
     try {
-      const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest`, {
-        headers: { Accept: 'application/vnd.github+json' }
-      });
+      const response = await fetch(RELEASE_DATA_URL, { cache: 'no-store' });
       if (!response.ok) {
-        throw new Error(`GitHub API returned ${response.status}`);
+        throw new Error(`Release data returned ${response.status}`);
       }
       const release = await response.json();
       assetIndex = buildAssetIndex(release.assets || []);
-      label.textContent = `Latest release: ${release.tag_name}`;
+      label.textContent = release.tag_name ? `Latest release: ${release.tag_name}` : 'Latest release';
 
       if (!Object.keys(assetIndex).length) {
         document.getElementById('download-assets').innerHTML = '<p class="muted-note">No downloadable assets found in the latest release.</p>';
@@ -268,10 +265,10 @@
 
       renderAll();
     } catch (err) {
-      console.error('Failed to fetch latest release assets:', err);
+      console.error('Failed to load prebuilt latest release assets:', err);
       label.textContent = 'Unable to load latest release';
       document.getElementById('download-assets').innerHTML = `
-        <p class="muted-note">Could not fetch release assets right now. Please use the releases page directly.</p>
+        <p class="muted-note">Could not load release assets right now. Please use the releases page directly.</p>
         <p><a class="btn btn-secondary" href="https://github.com/championswimmer/env.sync.local/releases"><i class="fa-brands fa-github"></i> Open releases</a></p>
       `;
     }
