@@ -8,6 +8,8 @@ on:
       - 'website/**'
       - 'install.sh'
       - '.github/workflows/website-pages.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -21,9 +23,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare website for publishing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           touch website/.nojekyll
           cp install.sh website/install.sh
+          python3 ./build/fetch_latest_release_for_website.py
 
       - name: Deploy website to gh-pages
         uses: peaceiris/actions-gh-pages@v4
