@@ -1366,6 +1366,9 @@ footer {
 .post-install-tips li {
   line-height: 1.45;
 }
+.post-install-tips li.tip-hidden {
+  display: none;
+}
 .muted-note {
   color: var(--muted);
   font-size: 0.92rem;
