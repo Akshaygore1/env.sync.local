@@ -14,6 +14,8 @@ const pruneOldMaterial = ref(false)
 const cronInterval = ref(30)
 const showInitialize = ref(false)
 const initEncrypted = ref(false)
+const STATUS_POLL_DELAY_MS = 250
+const MAX_STATUS_POLL_ATTEMPTS = 4
 
 onMounted(async () => {
   await Promise.all([
@@ -67,9 +69,20 @@ async function initEnvSync() {
 async function startServer() {
   try {
     // @ts-expect-error Wails bindings
-    await window.go.main.ServiceMgmtService.StartServer()
+    const configuredPort = await window.go.main.ServiceMgmtService.GetServerPort()
+    // @ts-expect-error Wails bindings
+    await window.go.main.ServiceMgmtService.StartServer(configuredPort, true)
     toast.success('Server started')
     await status.fetchStatus()
+    if (!status.serverStatus?.running) {
+      for (let attempt = 0; attempt < MAX_STATUS_POLL_ATTEMPTS; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, STATUS_POLL_DELAY_MS))
+        await status.fetchStatus()
+        if (status.serverStatus?.running) {
+          break
+        }
+      }
+    }
   } catch (e) {
     toast.error('Failed to start server: ' + e)
   }
