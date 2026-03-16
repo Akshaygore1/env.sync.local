@@ -1274,260 +1274,109 @@ footer {
   padding: var(--space-md);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-}
-.cta-banner h2 {
-  margin-top: 0;
-  font-size: 1.6rem;
-}
-.cta-banner p {
-  color: var(--muted);
-  max-width: 540px;
-  margin: 0.5rem auto 1.25rem;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
 }
 
-/* Responsive table wrapper — prevent overflow */
-.table-scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+.checklist-item:hover {
+  border-color: var(--border-bright);
 }
 
-/* Download page */
-.download-controls {
-  display: grid;
-  gap: 1rem;
+.checklist-item > i {
+  flex-shrink: 0;
+  color: var(--green);
+  font-size: 1.1rem;
+  margin-top: 0.1em;
 }
-.download-group h3 {
-  margin: 0 0 0.6rem;
+
+.checklist-item > span {
+  flex: 1;
+  color: var(--text);
 }
-.option-grid {
+
+/* --- Card Icon --- */
+.card-icon {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  font-size: 1.5rem;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  margin-bottom: var(--space-md);
 }
-.option-btn {
-  border: 1px solid var(--border);
-  background: rgba(34, 48, 73, 0.45);
-  color: var(--text);
-  border-radius: 10px;
-  padding: 0.6rem 0.75rem;
-  font-weight: 600;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition:
-    border-color 0.2s,
-    transform 0.15s,
-    background 0.2s;
-  width: auto;
+
+/* --- Step with side number (alternate style) --- */
+.step .step-number {
+  position: absolute;
+  top: calc(-1 * var(--space-md));
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
+  min-width: 32px;
+  text-align: center;
 }
-.option-btn:hover {
-  border-color: rgba(151, 201, 255, 0.4);
-  transform: translateY(-1px);
+
+.step .step-content {
+  text-align: center;
 }
-.option-btn.active {
-  color: #061120;
-  border-color: transparent;
-  background: linear-gradient(135deg, #80d8ff 0%, #97c9ff 45%, #a8b6ff 100%);
+
+.step .step-content h4 {
+  margin: 0 0 var(--space-xs);
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
 }
-.option-btn i {
-  margin-right: 0.45rem;
+
+.step .step-content h4 i {
+  color: var(--accent);
 }
-.download-arch {
-  max-width: 320px;
-}
-.download-arch select {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: rgba(17, 18, 35, 0.9);
-  color: var(--text);
-  border-radius: 10px;
-  padding: 0.55rem 0.7rem;
-  font-size: 0.95rem;
-}
-.download-results h3 {
-  margin-top: 0;
-}
-.download-assets {
-  display: grid;
-  gap: 0.75rem;
-}
-.download-assets .panel {
+
+.step .step-content p {
   margin: 0;
+  font-size: 0.9rem;
 }
-.download-guidance h3 {
-  margin-top: 0;
-}
-.post-install-tips {
-  margin: 0;
-  padding-left: 1.1rem;
-  display: grid;
-  gap: 0.55rem;
-  color: var(--text);
-}
-.post-install-tips li {
-  line-height: 1.45;
-}
-.post-install-tips li.tip-hidden {
+
+/* When using step-number, hide the ::before counter */
+.step:has(.step-number)::before {
   display: none;
 }
-.muted-note {
-  color: var(--muted);
-  font-size: 0.92rem;
+
+/* --- Utility Classes --- */
+.text-center {
+  text-align: center;
 }
-
-@media (max-width: 880px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-  .hero h1 {
-    font-size: 2rem;
-  }
-  .hero img {
-    max-width: 100%;
-  }
-  .footer-inner {
-    flex-direction: column;
-  }
-
-  /* Make panels containing tables scrollable */
-  .panel:has(table) {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  table {
-    font-size: 0.88rem;
-  }
-  th,
-  td {
-    padding: 0.5rem 0.6rem;
-  }
+.text-left {
+  text-align: left;
 }
-
-@media (max-width: 600px) {
-  main {
-    padding: 1.25rem 0.75rem 3rem;
-  }
-
-  .hero h1 {
-    font-size: 1.55rem;
-  }
-  .hero > div > p {
-    font-size: 0.97rem;
-  }
-
-  .section-heading h2 {
-    font-size: 1.35rem;
-  }
-  .subpage-hero h1 {
-    font-size: 1.6rem;
-  }
-
-  /* Stacked card layout for tables on small screens */
-  table,
-  thead,
-  tbody,
-  th,
-  td,
-  tr {
-    display: block;
-  }
-  thead {
-    /* Visually hide thead but keep for accessibility */
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    border: 0;
-  }
-  tr {
-    margin-bottom: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-  td {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.55rem 0.75rem;
-    border: none;
-    border-bottom: 1px solid rgba(163, 180, 202, 0.12);
-    font-size: 0.88rem;
-    text-align: right;
-  }
-  td:last-child {
-    border-bottom: none;
-  }
-  td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: var(--text);
-    text-align: left;
-    flex-shrink: 0;
-    min-width: 35%;
-    margin-right: auto;
-  }
-
-  /* Trust bar */
-  .trust-bar {
-    gap: 0.75rem;
-    font-size: 0.84rem;
-  }
-
-  /* Badges */
-  .badge {
-    font-size: 0.78rem;
-    padding: 0.2rem 0.5rem;
-  }
-
-  /* Buttons */
-  .cta-row {
-    flex-direction: column;
-  }
-  .btn {
-    justify-content: center;
-    width: 100%;
-  }
-
-  /* CTA banner */
-  .cta-banner {
-    padding: 1.5rem 1rem;
-  }
-  .cta-banner h2 {
-    font-size: 1.3rem;
-  }
-
-  /* Navigation */
-  .nav {
-    flex-wrap: wrap;
-    padding: 0.65rem 0.75rem;
-  }
-  nav ul {
-    gap: 0.6rem;
-  }
-  nav ul li a {
-    font-size: 0.82rem;
-  }
-  .nav .github-link {
-    font-size: 0.82rem;
-    padding: 0.25rem 0.5rem;
-  }
-
-  /* Footer */
-  .footer-links {
-    gap: 1.25rem;
-  }
-
-  /* Steps */
-  .steps {
-    grid-template-columns: 1fr;
-  }
-
-  /* Features */
-  .features {
-    grid-template-columns: 1fr;
-  }
+.text-right {
+  text-align: right;
+}
+.mt-0 {
+  margin-top: 0;
+}
+.mb-0 {
+  margin-bottom: 0;
+}
+.mt-lg {
+  margin-top: var(--space-lg);
+}
+.mb-lg {
+  margin-bottom: var(--space-lg);
+}
+.max-w-narrow {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
 }
