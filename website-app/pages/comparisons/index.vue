@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'docs' })
+
 useHead({
   title: 'Comparisons | env-sync vs alternatives',
   meta: [

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'docs' })
+
 useHead({
   title: 'HashiCorp Vault vs env-sync | 2026 comparison',
   meta: [
@@ -62,10 +64,11 @@ useHead({
   </section>
 
   <section class="panel">
-    <h2>Where each tool shines</h2>
-    <div class="grid">
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-building-columns"></i></div>
+    <div class="section-header">
+      <h2>Where each tool shines</h2>
+    </div>
+    <div class="mode-options">
+      <div class="mode-option">
         <h3>Vault excels at</h3>
         <ul>
           <li>Dynamic credential generation (databases, cloud IAM)</li>
@@ -75,9 +78,8 @@ useHead({
           <li>Multi-tenancy with namespace isolation</li>
           <li>Encryption-as-a-service via transit engine</li>
         </ul>
-      </article>
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-rotate"></i></div>
+      </div>
+      <div class="mode-option">
         <h3>env-sync excels at</h3>
         <ul>
           <li>Zero-overhead local machine synchronization</li>
@@ -87,7 +89,7 @@ useHead({
           <li>Automatic conflict resolution and backups</li>
           <li>Minutes to deploy, not hours</li>
         </ul>
-      </article>
+      </div>
     </div>
   </section>
 

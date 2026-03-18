@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'docs' })
+
 useHead({
   title: 'dotenvx vs env-sync | 2026 comparison',
   meta: [
@@ -61,10 +63,11 @@ useHead({
   </section>
 
   <section class="panel">
-    <h2>Where each tool shines</h2>
-    <div class="grid">
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-lock"></i></div>
+    <div class="section-header">
+      <h2>Where each tool shines</h2>
+    </div>
+    <div class="mode-options">
+      <div class="mode-option">
         <h3>dotenvx excels at</h3>
         <ul>
           <li>Encrypting .env files for safe Git commits</li>
@@ -73,9 +76,8 @@ useHead({
           <li>Multi-environment key management</li>
           <li>Preventing accidental secret leaks with precommit hooks</li>
         </ul>
-      </article>
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-rotate"></i></div>
+      </div>
+      <div class="mode-option">
         <h3>env-sync excels at</h3>
         <ul>
           <li>Keeping multiple machines in sync automatically</li>
@@ -84,7 +86,7 @@ useHead({
           <li>Explicit trust boundaries (SSH vs mTLS modes)</li>
           <li>Offline / air-gapped LAN operation</li>
         </ul>
-      </article>
+      </div>
     </div>
   </section>
 

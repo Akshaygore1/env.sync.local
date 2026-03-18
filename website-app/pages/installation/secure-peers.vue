@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'docs' })
+
 useHead({
   title: 'Secure Peers setup guide | env-sync',
   meta: [

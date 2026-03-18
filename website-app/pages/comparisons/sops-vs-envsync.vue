@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'docs' })
+
 useHead({
   title: 'SOPS vs env-sync | 2026 comparison',
   meta: [
@@ -61,10 +63,11 @@ useHead({
   </section>
 
   <section class="panel">
-    <h2>Where each tool shines</h2>
-    <div class="grid">
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-lock"></i></div>
+    <div class="section-header">
+      <h2>Where each tool shines</h2>
+    </div>
+    <div class="mode-options">
+      <div class="mode-option">
         <h3>SOPS excels at</h3>
         <ul>
           <li>Encrypted config files in Git repositories</li>
@@ -74,9 +77,8 @@ useHead({
           <li>GitOps and IaC pipeline integration</li>
           <li>Audit logging of decrypt operations</li>
         </ul>
-      </article>
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-rotate"></i></div>
+      </div>
+      <div class="mode-option">
         <h3>env-sync excels at</h3>
         <ul>
           <li>Live machine-to-machine secret synchronization</li>
@@ -86,7 +88,7 @@ useHead({
           <li>Offline / air-gapped LAN operation</li>
           <li>Automatic backups before every write</li>
         </ul>
-      </article>
+      </div>
     </div>
   </section>
 

@@ -3,7 +3,7 @@
 
 <template>
   <footer>
-    <div class="footer-inner">
+    <div class="footer-content">
       <div>
         <div class="footer-brand">env-sync</div>
         <p>Distributed .env sync for local networks.</p>

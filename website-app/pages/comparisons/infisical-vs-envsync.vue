@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'docs' })
+
 useHead({
   title: 'Infisical vs env-sync | 2026 comparison',
   meta: [
@@ -63,10 +65,11 @@ useHead({
   </section>
 
   <section class="panel">
-    <h2>Where each tool shines</h2>
-    <div class="grid">
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-building"></i></div>
+    <div class="section-header">
+      <h2>Where each tool shines</h2>
+    </div>
+    <div class="mode-options">
+      <div class="mode-option">
         <h3>Infisical excels at</h3>
         <ul>
           <li>Organization-wide secrets governance with RBAC</li>
@@ -76,9 +79,8 @@ useHead({
           <li>Web dashboard for non-CLI users</li>
           <li>Compliance certifications (SOC 2, HIPAA)</li>
         </ul>
-      </article>
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-rotate"></i></div>
+      </div>
+      <div class="mode-option">
         <h3>env-sync excels at</h3>
         <ul>
           <li>Zero-overhead local machine synchronization</li>
@@ -88,7 +90,7 @@ useHead({
           <li>Automatic conflict resolution and backups</li>
           <li>Minutes to deploy across an entire fleet</li>
         </ul>
-      </article>
+      </div>
     </div>
   </section>
 

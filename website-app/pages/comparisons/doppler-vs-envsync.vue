@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: 'docs' })
+
 useHead({
   title: 'Doppler vs env-sync | 2026 comparison',
   meta: [
@@ -64,10 +66,11 @@ useHead({
   </section>
 
   <section class="panel">
-    <h2>Where each tool shines</h2>
-    <div class="grid">
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-cloud"></i></div>
+    <div class="section-header">
+      <h2>Where each tool shines</h2>
+    </div>
+    <div class="mode-options">
+      <div class="mode-option">
         <h3>Doppler excels at</h3>
         <ul>
           <li>Centralized governance with RBAC and audit trails</li>
@@ -77,9 +80,8 @@ useHead({
           <li>Instant sync propagation across environments</li>
           <li>Missing secret detection and drift alerts</li>
         </ul>
-      </article>
-      <article class="panel feature">
-        <div class="icon"><i class="fa-solid fa-rotate"></i></div>
+      </div>
+      <div class="mode-option">
         <h3>env-sync excels at</h3>
         <ul>
           <li>Works without internet or cloud accounts</li>
@@ -89,7 +91,7 @@ useHead({
           <li>Automatic conflict resolution and backups</li>
           <li>Free forever — no per-user pricing</li>
         </ul>
-      </article>
+      </div>
     </div>
   </section>
 
